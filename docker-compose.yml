@@ -2,16 +2,41 @@ services:
   qdrant:
     image: qdrant/qdrant:v1.19.1
     ports:
-      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:${QDRANT_HOST_PORT:-6333}:6333"
     volumes:
       - qdrant_data:/qdrant/storage
 
   ollama:
     image: ollama/ollama:0.33.3
     ports:
-      - "127.0.0.1:11434:11434"
+      - "127.0.0.1:${OLLAMA_HOST_PORT:-11434}:11434"
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-2}
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # One-shot job run by `make up`: pulls the models into the ollama volume.
+  # Not started by plain `docker compose up` (profile "init").
+  ollama-init:
+    image: ollama/ollama:0.33.3
+    profiles: ["init"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint:
+      - /bin/sh
+      - -c
+      - ollama pull ${LLM_MODEL:-qwen3:1.7b} && ollama pull ${EMBEDDING_MODEL:-nomic-embed-text}
+    restart: "no"
 
 volumes:
   qdrant_data:
