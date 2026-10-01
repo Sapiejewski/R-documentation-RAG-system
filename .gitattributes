@@ -1,0 +1,5 @@
+# Store text files with LF line endings. Without this, files edited on Windows
+# get CRLF, and shell scripts run by make or inside Linux containers (such as
+# scripts/smoke.sh) fail with "\r: not found". Binary files are detected
+# automatically and left untouched.
+* text=auto eol=lf

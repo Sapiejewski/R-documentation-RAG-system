@@ -8,3 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local configuration — copy .env.example to .env and edit
+.env
+
+# Downloaded R package sources and generated corpus artefacts
+corpus/
+data/

@@ -1,0 +1,23 @@
+# NVIDIA GPU overlay for Ollama.
+#
+# Kept separate because on a machine without an NVIDIA driver this reservation
+# makes `docker compose up` fail. `make up` adds this file automatically when
+# Docker can provide a GPU (GPU=auto in .env). Without make:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# Requires the NVIDIA Container Toolkit on Linux, or Docker Desktop with the
+# WSL2 backend and a current NVIDIA driver on Windows.
+#
+# Verify the GPU was picked up:
+#   make gpu-check        # expect library=cuda, not library=cpu
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
