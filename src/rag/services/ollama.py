@@ -22,6 +22,11 @@ class OllamaEmbedder:
         self.batch_size = batch_size
         self.timeout = timeout
 
+    @property
+    def identity(self) -> str:
+        """Everything that determines the vectors: a different model or prefix gives different ones."""
+        return f"ollama:{self.model}|{self.doc_prefix}"
+
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
         for start in range(0, len(texts), self.batch_size):

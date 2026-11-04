@@ -1,7 +1,6 @@
 import contextlib
 import io
 import os
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -15,10 +14,11 @@ from rag.evaluation.retrieval import (
     load_cases,
     rank_of_first_relevant,
 )
-from rag.ingestion.indexing import index_package
+from rag.ingestion.indexing import Indexer
+from rag.ingestion.registry import MemoryRegistry
 from rag.retrieval.vector_store import Hit, MemoryStore
-from tests.fakes import FakeEmbedder, FakeServices
-from tests.fixtures import write_extracted
+from tests.fakes import FakeEmbedder
+from tests.fixtures import sync_package
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -58,16 +58,8 @@ class RankingTest(unittest.TestCase):
 
 class EvaluateTest(unittest.TestCase):
     def test_evaluate_on_fixture_package(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            write_extracted(Path(tmp))
-            embedder, store = FakeEmbedder(), MemoryStore()
-            index_package(
-                "stringr",
-                data_dir=Path(tmp),
-                embedder=embedder,
-                store=store,
-                log=lambda _: None,
-            )
+        embedder, store = FakeEmbedder(), MemoryStore()
+        sync_package(Indexer(store=store, registry=MemoryRegistry(), embedder=embedder))
         cases = [
             Case("pad a string to a fixed width", ("str_pad",)),
             Case("remove whitespace from both ends", ("str_trim", "str_squish")),
@@ -94,60 +86,17 @@ class QuestionSetTest(unittest.TestCase):
 
 
 class CliTest(unittest.TestCase):
-    def run_cli(self, *argv: str, data_dir: Path) -> tuple[int, str, str]:
-        out, err = io.StringIO(), io.StringIO()
-        with (
-            mock.patch.dict(os.environ, {"RAG_DATA_DIR": str(data_dir)}),
-            contextlib.redirect_stdout(out),
-            contextlib.redirect_stderr(err),
-        ):
-            code = main(list(argv))
-        return code, out.getvalue(), err.getvalue()
-
-    def test_inspect_summary_and_topic(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            write_extracted(Path(tmp))
-            code, out, _ = self.run_cli("inspect", "stringr", data_dir=Path(tmp))
-            self.assertEqual(code, 0)
-            self.assertIn("str_pad", out)
-            self.assertIn("chunk size:", out)
-
-            code, out, _ = self.run_cli("inspect", "stringr", "--topic", "str_squish", data_dir=Path(tmp))
-            self.assertEqual(code, 0)
-            self.assertIn("stringr::str_trim", out)  # found through its alias
-
-            code, out, _ = self.run_cli("inspect", "stringr", "--topic", "nope", data_dir=Path(tmp))
-            self.assertEqual(code, 1)
-
-    def test_missing_package_is_a_clean_error(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            code, _, err = self.run_cli("inspect", "ghost", data_dir=Path(tmp))
-            self.assertEqual(code, 1)
-            self.assertIn("make extract PKG=ghost", err)
-
     def test_unreachable_services_are_a_clean_error(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            write_extracted(Path(tmp))
-            env = {
-                "OLLAMA_URL": "http://127.0.0.1:9",
-                "QDRANT_URL": "http://127.0.0.1:9",
-            }
-            with mock.patch.dict(os.environ, env):
-                code, _, err = self.run_cli("index", "stringr", data_dir=Path(tmp))
-            self.assertEqual(code, 1)
-            self.assertIn("make up", err)
-
-    def test_check_reports_every_service(self):
-        server = FakeServices().start()
-        self.addCleanup(server.stop)
+        env = {"OLLAMA_URL": "http://127.0.0.1:9", "QDRANT_URL": "http://127.0.0.1:9"}
+        err = io.StringIO()
         with (
-            tempfile.TemporaryDirectory() as tmp,
-            mock.patch.dict(os.environ, {"OLLAMA_URL": server.url, "QDRANT_URL": server.url}),
+            mock.patch.dict(os.environ, env),
+            contextlib.redirect_stderr(err),
+            contextlib.redirect_stdout(io.StringIO()),
         ):
-            code, out, _ = self.run_cli("check", data_dir=Path(tmp))
-        self.assertEqual(code, 0)
-        self.assertIn("Fits a linear model.", out)
-        self.assertIn("collection not created yet", out)
+            code = main(["search", "pad a string"])
+        self.assertEqual(code, 1)
+        self.assertIn("make up", err.getvalue())
 
 
 if __name__ == "__main__":

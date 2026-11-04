@@ -8,13 +8,13 @@ from the prose, since they are code and answer different questions.
 """
 
 import re
-import uuid
 from dataclasses import dataclass
 
 from rag.ingestion.rdtext import parse_sections
 
-# Fixed namespace, so the same topic always maps to the same point id.
-_NAMESPACE = uuid.UUID("5d3f6a0e-8c52-4a71-b0a4-2f8d3c9e6b17")
+# Bump whenever a change here changes the chunks produced from the same help pages: every
+# package is then indexed again on the next sync (vectors of unchanged chunk texts are reused).
+CHUNKER_VERSION = 1
 _DROPPED_SECTIONS = {"Author(s)", "Author", "Authors"}
 _EXAMPLES = "Examples"
 _MAX_ALIASES_IN_HEADER = 12
@@ -22,7 +22,7 @@ _MAX_ALIASES_IN_HEADER = 12
 
 @dataclass(frozen=True)
 class Chunk:
-    id: str
+    key: str  # "<package>/<topic>/<index>", unique within one package
     package: str
     version: str
     topic: str
@@ -117,7 +117,7 @@ def _make_chunks(
     for index, (section, body) in enumerate(bodies):
         chunks.append(
             Chunk(
-                id=str(uuid.uuid5(_NAMESPACE, f"{package}/{topic}/{index}")),
+                key=f"{package}/{topic}/{index}",
                 package=package,
                 version=version,
                 topic=topic,
@@ -133,7 +133,7 @@ def _make_chunks(
 
 
 def chunk_topic(record: dict, max_chars: int = 1500) -> list[Chunk]:
-    """Chunk one help topic (a `type: topic` record from the extraction step)."""
+    """Chunk one help page, as sent by the R client (package, version, name, title, aliases, text)."""
     package = record["package"]
     version = record.get("version") or ""
     topic = record["name"]
@@ -178,7 +178,7 @@ def chunk_topic(record: dict, max_chars: int = 1500) -> list[Chunk]:
 
 
 def chunk_description(record: dict, max_chars: int = 1500) -> list[Chunk]:
-    """Chunk the package-level description (a `type: description` record)."""
+    """Chunk the package-level description (package, version, title, description)."""
     package = record["package"]
     title = record.get("title") or ""
     description = record.get("description") or ""
@@ -189,12 +189,3 @@ def chunk_description(record: dict, max_chars: int = 1500) -> list[Chunk]:
     return _make_chunks(
         package, record.get("version") or "", f"{package}-description", title, (package,), header, bodies
     )
-
-
-def chunk_record(record: dict, max_chars: int = 1500) -> list[Chunk]:
-    kind = record.get("type", "topic")
-    if kind == "topic":
-        return chunk_topic(record, max_chars)
-    if kind == "description":
-        return chunk_description(record, max_chars)
-    return []

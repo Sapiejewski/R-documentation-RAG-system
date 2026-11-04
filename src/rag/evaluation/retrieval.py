@@ -10,6 +10,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from rag.retrieval.search import search
 from rag.retrieval.vector_store import Hit, VectorStore
 
 
@@ -64,7 +65,7 @@ def rank_of_first_relevant(hits: list[Hit], expected: tuple[str, ...]) -> int | 
 def evaluate(cases: list[Case], *, embedder, store: VectorStore, package: str | None, k: int = 10) -> EvalReport:
     results = []
     for case in cases:
-        hits = store.search(embedder.embed_query(case.question), k, package)
+        hits = search(case.question, embedder=embedder, store=store, k=k, package=package)
         topics = tuple(dict.fromkeys(h.payload.get("topic", "?") for h in hits))[:3]
         results.append(CaseResult(case, rank_of_first_relevant(hits, case.expected), topics))
     return EvalReport(tuple(results))

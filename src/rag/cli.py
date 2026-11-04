@@ -1,14 +1,12 @@
 """Command line interface:  python -m rag <command> ..."""
 
 import argparse
-import statistics
 import sys
 import time
 from pathlib import Path
 
 from rag.config import Settings
 from rag.evaluation.retrieval import evaluate, load_cases
-from rag.ingestion.indexing import build_chunks, extracted_path, index_package, read_records
 from rag.retrieval.search import format_hit, search
 from rag.services.http import ServiceError
 from rag.services.ollama import OllamaEmbedder, OllamaLLM
@@ -28,27 +26,10 @@ def _store(settings: Settings) -> QdrantStore:
     return QdrantStore(settings.qdrant_url, settings.collection, settings.qdrant_api_key)
 
 
-def cmd_index(args, settings: Settings) -> int:
-    report = index_package(
-        args.package,
-        data_dir=settings.data_dir,
-        embedder=_embedder(settings),
-        store=_store(settings),
-        max_chars=args.max_chars,
-    )
-    print(
-        f"Indexed {report.package}: {report.topics} topics -> {report.chunks} chunks "
-        f"in collection '{settings.collection}' ({report.seconds:.1f}s)."
-    )
-    if report.duplicate_topics:
-        print(f"Skipped {report.duplicate_topics} duplicate topic names.")
-    return 0
-
-
 def cmd_search(args, settings: Settings) -> int:
     hits = search(args.query, embedder=_embedder(settings), store=_store(settings), k=args.k, package=args.package)
     if not hits:
-        print("No results. Has anything been indexed? Try: make ingest")
+        print("No results. Has anything been indexed? Try: make sync")
         return 1
     for rank, hit in enumerate(hits, start=1):
         print(format_hit(rank, hit))
@@ -76,32 +57,29 @@ def cmd_evaluate(args, settings: Settings) -> int:
 
 
 def cmd_inspect(args, settings: Settings) -> int:
-    """Show how a package is chunked. Needs only the extracted file, no services."""
-    records = read_records(extracted_path(settings.data_dir, args.package))
-    chunks, duplicates = build_chunks(records, args.max_chars)
-    if args.topic:
-        chunks = [c for c in chunks if args.topic == c.topic or args.topic in c.aliases]
-        if not chunks:
-            print(f"No topic or alias '{args.topic}' in {args.package}.")
-            return 1
-        for chunk in chunks:
-            print(f"{'-' * 72}\n{chunk.section} | chunk {chunk.index + 1}/{chunk.count} | {len(chunk.text)} chars")
-            print(chunk.text)
-        return 0
-    sizes = [len(c.text) for c in chunks]
-    print(f"{args.package}: {len(records)} records -> {len(chunks)} chunks ({duplicates} duplicate topics skipped)")
-    print(f"chunk size: min {min(sizes)}, median {int(statistics.median(sizes))}, max {max(sizes)} chars")
-    topics = list(dict.fromkeys(c.topic for c in chunks))
-    print(f"topics ({len(topics)}): {', '.join(topics[:15])}{' ...' if len(topics) > 15 else ''}")
-    print(f"See one in full:  python -m rag inspect {args.package} --topic {topics[0]}")
+    """Show how a help topic was chunked, as stored in the index."""
+    where = {"package": args.package, "active": True}
+    chunks = sorted(_store(settings).find(where, "aliases", [args.topic]), key=lambda p: p.payload["chunk_index"])
+    if not chunks:
+        print(f"No topic or alias '{args.topic}' indexed for package '{args.package}'.")
+        return 1
+    for point in chunks:
+        p = point.payload
+        print(
+            f"{'-' * 72}\n{p['library']}/{p['package']} {p['version']} | {p['section']} | "
+            f"chunk {p['chunk_index'] + 1}/{p['chunk_count']} | {len(p['text'])} chars"
+        )
+        print(p["text"])
     return 0
 
 
 def cmd_stats(args, settings: Settings) -> int:
     store = _store(settings)
-    print(f"collection '{settings.collection}': {store.count()} chunks")
+    print(
+        f"collection '{settings.collection}': {store.count({'active': True})} active chunks, {store.count()} in total"
+    )
     if args.package:
-        print(f"package '{args.package}': {store.count(args.package)} chunks")
+        print(f"package '{args.package}': {store.count({'package': args.package, 'active': True})} active chunks")
     return 0
 
 
@@ -125,7 +103,11 @@ def cmd_check(args, settings: Settings) -> int:
     print(f"            {answer.text[:300]}")
 
     store = _store(settings)
-    stored = f"{store.count()} chunks" if store.exists() else "collection not created yet (run: make ingest)"
+    stored = (
+        f"{store.count({'active': True})} active chunks"
+        if store.exists()
+        else "collection not created yet (run: make sync)"
+    )
     print(f"qdrant      {settings.collection:<20} OK  {stored}")
     return 0
 
@@ -133,11 +115,6 @@ def cmd_check(args, settings: Settings) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m rag", description="RAG over R package documentation.")
     commands = parser.add_subparsers(dest="command", required=True)
-
-    p = commands.add_parser("index", help="chunk, embed and store an extracted package")
-    p.add_argument("package")
-    p.add_argument("--max-chars", type=int, default=1500)
-    p.set_defaults(run=cmd_index)
 
     p = commands.add_parser("search", help="retrieve the chunks closest to a question")
     p.add_argument("query")
@@ -152,10 +129,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--min-hit5", type=float, default=0.0, help="exit 1 if hit@5 is below this (0-1)")
     p.set_defaults(run=cmd_evaluate)
 
-    p = commands.add_parser("inspect", help="show how an extracted package is chunked (no services needed)")
+    p = commands.add_parser("inspect", help="show the stored chunks of one help topic")
     p.add_argument("package")
-    p.add_argument("--topic", help="print the chunks of this topic or alias")
-    p.add_argument("--max-chars", type=int, default=1500)
+    p.add_argument("topic", help="topic name or alias, e.g. str_pad")
     p.set_defaults(run=cmd_inspect)
 
     p = commands.add_parser("stats", help="count what is stored in Qdrant")

@@ -7,7 +7,9 @@ requires-python = ">=3.14"
 # Add a dependency only when it gives something real (e.g. BM25, a tokenizer, a web
 # framework), not a thin wrapper over what the standard library already does.
 # Each one gets a line in docs/decisions.md. So far none was needed.
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.2",
+]
 
 [project.scripts]
 rag = "rag.cli:main"
@@ -23,6 +25,7 @@ module-name = "rag"
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.16.10",
+    "testcontainers>=4.15.0",
 ]
 
 [tool.pytest.ini_options]

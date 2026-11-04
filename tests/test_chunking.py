@@ -1,11 +1,10 @@
 import unittest
 
-from rag.ingestion.chunking import chunk_description, chunk_record, chunk_topic, split_text
-from tests.fixtures import RECORDS
+from rag.ingestion.chunking import chunk_description, chunk_topic, split_text
+from tests.fixtures import OVERVIEW, PAGES
 
-STR_PAD = RECORDS[1]
-STR_TRIM = RECORDS[2]
-STR_DETECT = RECORDS[3]
+STR_PAD, STR_TRIM, STR_DETECT = PAGES
+DESCRIPTION = {"package": "stringr", "version": "1.5.1"} | OVERVIEW
 HEADER = "stringr::str_pad - Pad a string to minimum width"
 
 
@@ -56,11 +55,12 @@ class ChunkTopicTest(unittest.TestCase):
         chunks = chunk_topic(STR_DETECT)
         self.assertEqual(chunks[0].aliases, ("str_detect",))
 
-    def test_ids_are_unique_and_deterministic(self):
+    def test_keys_are_unique_and_deterministic(self):
         first = chunk_topic(STR_PAD)
         second = chunk_topic(STR_PAD)
-        self.assertEqual([c.id for c in first], [c.id for c in second])
-        self.assertEqual(len({c.id for c in first}), len(first))
+        self.assertEqual([c.key for c in first], [c.key for c in second])
+        self.assertEqual(len({c.key for c in first}), len(first))
+        self.assertEqual(first[0].key, "stringr/str_pad/0")
 
     def test_index_and_count_are_consistent(self):
         chunks = chunk_topic(long_record(), max_chars=600)
@@ -97,7 +97,7 @@ class ChunkTopicTest(unittest.TestCase):
 
 class OtherRecordsTest(unittest.TestCase):
     def test_description_record(self):
-        chunks = chunk_description(RECORDS[0])
+        chunks = chunk_description(DESCRIPTION)
         self.assertEqual(len(chunks), 1)
         self.assertTrue(chunks[0].text.startswith("stringr (package overview)"))
         self.assertIn("wrappers around the 'stringi' package", chunks[0].text)
@@ -105,9 +105,6 @@ class OtherRecordsTest(unittest.TestCase):
 
     def test_empty_description_gives_no_chunks(self):
         self.assertEqual(chunk_description({"package": "p", "title": "", "description": ""}), [])
-
-    def test_unknown_record_type_is_ignored(self):
-        self.assertEqual(chunk_record({"type": "vignette", "package": "p"}), [])
 
 
 class SplitTextTest(unittest.TestCase):

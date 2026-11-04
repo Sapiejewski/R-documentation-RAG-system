@@ -1,10 +1,12 @@
-"""Retrieval: embed a question and fetch the closest chunks."""
+"""Retrieval: embed a question and fetch the closest chunks of the current package versions."""
 
 from rag.retrieval.vector_store import Hit, VectorStore
 
 
 def search(query: str, *, embedder, store: VectorStore, k: int = 5, package: str | None = None) -> list[Hit]:
-    return store.search(embedder.embed_query(query), k, package)
+    # Only active points: a package being re-indexed is still searched in its previous version.
+    where = {"active": True} | ({"package": package} if package else {})
+    return store.search(embedder.embed_query(query), k, where)
 
 
 def format_hit(rank: int, hit: Hit, preview_chars: int = 220) -> str:

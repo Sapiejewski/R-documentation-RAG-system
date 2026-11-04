@@ -1,7 +1,7 @@
-"""Sample extraction output, written the way tools::Rd2txt renders help pages."""
+"""Sample data as the R client sends it: an installation, its overview and help pages
+(rendered the way tools::Rd2txt renders them)."""
 
-import json
-from pathlib import Path
+from rag.schemas import Installation
 
 STR_PAD_TEXT = """\
 str_pad                package:stringr                R Documentation
@@ -125,16 +125,17 @@ Examples:
      str_detect(fruit, "^a")
 """
 
-RECORDS = [
+STRINGR = Installation(
+    library="user", package="stringr", version="1.5.1", built="R 4.5.1; ; 2025-01-10 10:00:00 UTC; unix"
+)
+
+OVERVIEW = {
+    "title": "Simple, Consistent Wrappers for Common String Operations",
+    "description": "A consistent, simple and easy to use set of wrappers around the 'stringi' package.",
+}
+
+PAGES = [
     {
-        "type": "description",
-        "package": "stringr",
-        "version": "1.5.1",
-        "title": "Simple, Consistent Wrappers for Common String Operations",
-        "description": "A consistent, simple and easy to use set of wrappers around the 'stringi' package.",
-    },
-    {
-        "type": "topic",
         "package": "stringr",
         "version": "1.5.1",
         "name": "str_pad",
@@ -144,7 +145,6 @@ RECORDS = [
         "text": STR_PAD_TEXT,
     },
     {
-        "type": "topic",
         "package": "stringr",
         "version": "1.5.1",
         "name": "str_trim",
@@ -154,7 +154,6 @@ RECORDS = [
         "text": STR_TRIM_TEXT,
     },
     {
-        "type": "topic",
         "package": "stringr",
         "version": "1.5.1",
         "name": "str_detect",
@@ -166,9 +165,8 @@ RECORDS = [
 ]
 
 
-def write_extracted(data_dir: Path, package: str = "stringr", records: list[dict] | None = None) -> Path:
-    path = data_dir / "extracted" / f"{package}.jsonl"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    rows = RECORDS if records is None else records
-    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
-    return path
+def sync_package(indexer, inst: Installation = STRINGR, pages: list[dict] = PAGES, overview: dict = OVERVIEW) -> int:
+    """What the R client does for one package the plan asked for. Returns the committed chunk count."""
+    indexer.begin(inst, overview["title"], overview["description"])
+    indexer.add_pages(inst, pages)
+    return indexer.commit(inst)
