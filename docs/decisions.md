@@ -3,6 +3,15 @@
 Krótko: co, dlaczego, jakie alternatywy. Najnowsze na górze. Przyda się przy pisaniu
 rozdziału o implementacji.
 
+## 2026-11 — Pydantic dla danych na granicach (`rag/schemas.py`)
+
+Modele, które przekraczają granicę systemu — manifest od klienta R (`Installation`), wpis rejestru
+(`IndexedPackage`), odpowiedzi sync (`SyncPlan`, `StoreReport`) — to modele pydantic w jednym pliku.
+FastAPI waliduje nimi żądania bez dodatkowego kodu: brakujące, puste lub nieznane pole (np. literówka
+w kliencie R) to od razu czytelny błąd 422, zanim ruszy nasza logika. Modele są niemutowalne
+(`frozen`) i porównywane po wartości — `plan` porównuje zgłoszoną instalację z zapisaną zwykłym `==`.
+Wewnętrzne typy, które nie wychodzą poza proces (`Chunk`, `Point`, `Hit`), zostają dataclassami.
+
 ## 2026-11 — Synchronizacja od razu przez HTTP API, bez plików pośrednich (dawne M1 + M2)
 
 Pierwotnie M1 miał zapisywać całe biblioteki do `data/extracted/*.jsonl`, a API miało przyjść później.
