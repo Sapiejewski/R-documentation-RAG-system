@@ -50,5 +50,7 @@ dobrze jak kilkukrotnie większy model bez RAG* — czyli ten sam efekt na zwyk�
 ## Rezultaty
 
 - Działający system (CLI + HTTP API + addin RStudio); na hoście potrzebny tylko R, reszta w Dockerze.
+- Pełne logging i observability: logi każdego kroku, ślady pojedynczych pytań i historia eksperymentów
+  (MLflow) — widać, co system robi, ile to trwa i dlaczego dał taką odpowiedź.
 - Zbiory ewaluacyjne (retrieval i odpowiedzi) z wynikami eksperymentów w `results/`.
 - Tekst pracy (osobno, później).

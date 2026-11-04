@@ -3,14 +3,47 @@
 Krótko: co, dlaczego, jakie alternatywy. Najnowsze na górze. Przyda się przy pisaniu
 rozdziału o implementacji.
 
+## 2026-11 — Synchronizacja od razu przez HTTP API, bez plików pośrednich (dawne M1 + M2)
+
+Pierwotnie M1 miał zapisywać całe biblioteki do `data/extracted/*.jsonl`, a API miało przyjść później.
+Odrzucone: pliki to praca do wyrzucenia, puchną przy dużych bibliotekach i wymagają sztuczek
+(`.partial`), żeby przerwana ekstrakcja nie wyglądała na kompletną. Zamiast tego od razu protokół docelowy:
+
+1. Klient R → `POST /sync` z manifestem `(pakiet, version, built)` biblioteki (kilka KB).
+2. Serwis porównuje ze stanem w Qdrancie i odpowiada planem: które pakiety wysłać, które usunął,
+   jaki rozmiar paczki.
+3. Dla każdego pakietu z planu: `begin` → paczki stron pomocy → `commit`. Do `commit` aktualna jest
+   stara wersja; przerwany transfer = serwis poprosi o pakiet przy następnym syncu.
+4. Paczki są idempotentne (stabilne id chunków + `content_hash`), więc ponowienie jest bezpieczne.
+
+Endpoint odpowiada dopiero po zapisaniu paczki — naturalny backpressure (gdy embedding nie nadąża,
+klient czeka) bez kolejki zadań i odpytywania o status. W M2 ten sam klient R trafia na hosta;
+zniknie tylko bind mount.
+
+## 2026-11 — Cienki klient R, gruby serwis Python
+
+Autor projektu nie zna dobrze R, a kod musi rozumieć i obronić. Dlatego R robi tylko to, czego nie
+zrobi nic innego: (1) wypisuje zainstalowane pakiety (`DESCRIPTION`), (2) zamienia skompilowaną bazę
+pomocy (`help/*.rdb`, wewnętrzny format R) na tekst; od M3 także tabela symboli. Wszystkie decyzje —
+co wysłać, rozmiar paczek, chunking, hashe, embeddingi, spójność, usuwanie, logowanie — w Pythonie.
+Klient R wykonuje polecenia serwisu. Budżet: ok. 100–150 linii, styl „jak Python” (funkcje, `for`,
+listy), testy `testthat` jako specyfikacja. Bez równoległości w R — najpierw pomiar wąskiego gardła.
+
+Chunking zostaje w Pythonie także dlatego, że to zmienna eksperymentalna (M5): zmiana strategii nie może
+wymagać aktualizacji kodu u użytkownika ani ponownej ekstrakcji wszystkich pakietów.
+
+Zależności: **FastAPI** (async, walidacja danych wejściowych, dokumentacja API pod `/docs`),
+**httr2** w R (ponawianie żądań, gzip). Obie dają realną funkcjonalność, nie są cienkimi nakładkami.
+
 ## 2026-11 — Synchronizacja bibliotek: docelowo z hosta, dynamicznie
 
 - **Cel:** użytkownik instaluje pakiet na hoście → reingest wyzwala się sam → pakiet jest w RAG.
-- **Docelowo (M3):** pakiet R na hoście wykrywa zmiany (start sesji, `addTaskCallback()` po każdej
+- **Docelowo (M2):** pakiet R na hoście wykrywa zmiany (start sesji, `addTaskCallback()` po każdej
   komendzie, ręczne `sync()`), sam robi ekstrakcję zmienionych pakietów i wysyła je do API w Dockerze.
   R nie ma haka „po instalacji”, ale callback sprawdza stan biblioteki, więc działa dla
   `install.packages`, `pak` i `renv` jednakowo. Serwis w Dockerze nie dotyka dysku hosta.
-- **Przejściowo (M1):** bind mount wybranej biblioteki (`R_LIBRARY` w `.env`) tylko do odczytu.
+- **Przejściowo (M1):** bind mount wybranych bibliotek (`R_SYSTEM_LIBRARY`, `R_USER_LIBRARY` w `.env`)
+  tylko do odczytu; klient R działa w kontenerze `r-extract`.
   Nie jest docelowy: folder jest ustalany przy starcie compose i nie da się go zmienić dynamicznie,
   a kontener nie wie, kiedy coś zainstalowano.
 - Odrzucone: ekstrakcja przez R hosta wywoływana z Pythona na hoście (łamie „Python tylko w Dockerze”).
@@ -31,8 +64,8 @@ rozdziału o implementacji.
 
 ## 2026-11 — Python docelowo tylko w Dockerze; na hoście tylko R
 
-Na czas developmentu Python działa na hoście przez `uv`. Kolejne etapy (M2: usługa `rag` w compose
-z HTTP API, M3: pakiet R na hoście) mają usunąć tę potrzebę — użytkownik instaluje tylko R
+Na czas developmentu Python działa na hoście przez `uv`. Kolejne etapy (M1: usługa `rag` w compose
+z HTTP API, M2: pakiet R na hoście) mają usunąć tę potrzebę — użytkownik instaluje tylko R
 (+ ewentualnie RStudio) i Docker.
 
 ## 2026-11 — Testy z prawdziwym Qdrantem przez testcontainers
@@ -44,7 +77,7 @@ deterministycznym `FakeEmbedder` (prawdziwy model to minuty pobierania i niedete
 
 ## 2026-11 — Weryfikacja odpowiedzi: zasady
 
-Szczegóły w `docs/design/verification.md` (M4). Zasady: najpierw sprawdzenia deterministyczne,
+Szczegóły w `docs/design/verification.md` (M3). Zasady: najpierw sprawdzenia deterministyczne,
 LLM tylko do poprawek; źródło prawdy = zainstalowana wersja; ograniczona pętla (max N poprawek,
 limity czasu); kod modelu wykonywany wyłącznie w izolowanym sandboxie, nigdy automatycznie
 w sesji użytkownika; każde sprawdzenie daje ustrukturyzowany wynik (metryki); użytkownik widzi,
@@ -91,7 +124,7 @@ funkcjonalność (np. BM25, reranker, framework pod HTTP API), dodajemy bez opor
 ## 2026-10 — Lokalne modele przez Ollamę: qwen3:1.7b + nomic-embed-text
 
 - LLM `qwen3:1.7b` (~1.4 GB): działa obok modelu embeddingów na GPU 6 GB i na CPU.
-  Większe modele (4b, 8b) do porównania w M3. `think: false`, bo „myślenie” Qwen3 jest wielokrotnie wolniejsze.
+  Większe modele (4b, 8b) do porównania w M4. `think: false`, bo „myślenie” Qwen3 jest wielokrotnie wolniejsze.
 - Embeddingi `nomic-embed-text` (768 wym.) z prefiksami `search_document:` / `search_query:`,
   na których model był trenowany.
 

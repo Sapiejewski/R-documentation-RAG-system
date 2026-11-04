@@ -29,8 +29,8 @@ wykrywa zmianę biblioteki → ekstrakcja tylko zmienionych pakietów → wysła
 
 - Python działa na hoście przez `uv` (wygodny development). **Do usunięcia** w kolejnych etapach
   roadmapy — docelowo Python tylko w Dockerze.
-- Ekstrakcja: kontener `r-extract` (R w Dockerze); dokumentacja przez pliki `data/extracted/*.jsonl`.
-- Biblioteka użytkownika (od M1): **bind mount tylko do odczytu** do kontenera ekstrakcji.
+- Klient R (M1) działa w kontenerze `r-extract` i rozmawia z serwisem przez ten sam HTTP API co docelowo.
+- Biblioteki hosta (od M1): **bind mount tylko do odczytu** do kontenera `r-extract`.
   To **rozwiązanie przejściowe**: folder jest ustalany przy starcie compose i nie da się go zmienić
   dynamicznie, a kontener nie wie, kiedy użytkownik coś zainstalował.
 
