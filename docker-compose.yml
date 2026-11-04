@@ -46,20 +46,41 @@ services:
       - ollama pull ${LLM_MODEL:-qwen3:1.7b} && ollama pull ${EMBEDDING_MODEL:-nomic-embed-text}
     restart: "no"
 
-  # One-off: R toolchain that writes data/extracted/<pkg>.jsonl.
-  # Profile "tools" keeps it out of `up`. Installed R packages are cached in the
-  # r_lib volume, so each package is downloaded only once.
+  # One-off: reads the help pages of the R libraries below and writes
+  # data/extracted/<library>/<package>.jsonl (make sync / make ingest).
+  # Profile "tools" keeps it out of `up`.
   r-extract:
-    image: rocker/r-ver:4.5.1
+    build:
+      context: src/extraction
+      args:
+        HOST_UID: ${HOST_UID:-1000}
     profiles: ["tools"]
+    # Run as the host user, so the files it writes in data/ are yours, not root's.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /work
     volumes:
       - ./src/extraction:/work/extraction:ro
       - ./data:/work/data
-      - r_lib:/usr/local/lib/R/site-library
-    entrypoint: ["Rscript", "/work/extraction/extract_rd.R"]
+      # Host R libraries, read-only. Set the paths in .env (see .env.example).
+      # create_host_path: false -> a wrong path is an error, instead of Docker silently
+      # creating an empty root-owned folder where R would later want to install.
+      - type: bind
+        source: ${R_SYSTEM_LIBRARY:-/usr/lib/R/library}
+        target: /libraries/system
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${R_USER_LIBRARY:-/R_USER_LIBRARY-is-not-set-see-.env.example}
+        target: /libraries/user
+        read_only: true
+        bind:
+          create_host_path: false
+      # Docker-only library for reproducible experiments (make ingest PKG=...).
+      - r_docker_lib:/libraries/docker
+    entrypoint: ["Rscript", "/work/extraction/main.R"]
 
 volumes:
   qdrant_data:
   ollama_data:
-  r_lib:
+  r_docker_lib:
