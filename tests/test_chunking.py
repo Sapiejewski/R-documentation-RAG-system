@@ -1,6 +1,6 @@
 import unittest
 
-from rag.chunking import chunk_description, chunk_record, chunk_topic, split_text
+from rag.ingestion.chunking import chunk_description, chunk_record, chunk_topic, split_text
 from tests.fixtures import RECORDS
 
 STR_PAD = RECORDS[1]
@@ -12,7 +12,15 @@ HEADER = "stringr::str_pad - Pad a string to minimum width"
 def long_record(argument_count: int = 40) -> dict:
     items = "\n\n".join(f"  arg_{i}: " + "word " * 25 for i in range(argument_count))
     text = f"f   package:p   R Documentation\n\nTitle\n\nDescription:\n\n     Does things.\n\nArguments:\n\n{items}\n"
-    return {"type": "topic", "package": "p", "version": "1", "name": "f", "title": "Title", "aliases": ["f"], "text": text}
+    return {
+        "type": "topic",
+        "package": "p",
+        "version": "1",
+        "name": "f",
+        "title": "Title",
+        "aliases": ["f"],
+        "text": text,
+    }
 
 
 class ChunkTopicTest(unittest.TestCase):

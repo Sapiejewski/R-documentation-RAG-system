@@ -1,12 +1,36 @@
 [project]
-name = "code"
+name = "r-docs-rag"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local RAG assistant over the documentation of R and R packages."
 readme = "README.md"
 requires-python = ">=3.14"
+# Add a dependency only when it gives something real (e.g. BM25, a tokenizer, a web
+# framework), not a thin wrapper over what the standard library already does.
+# Each one gets a line in docs/decisions.md. So far none was needed.
 dependencies = []
+
+[project.scripts]
+rag = "rag.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "rag"
 
 [dependency-groups]
 dev = [
+    "pytest>=9.2.0",
     "ruff>=0.16.10",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# Defaults plus: import order, modern syntax, likely bugs, simplifications.
+extend-select = ["I", "UP", "B", "SIM"]

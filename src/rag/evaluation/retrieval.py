@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from rag.stores import Hit, VectorStore
+from rag.retrieval.vector_store import Hit, VectorStore
 
 
 @dataclass(frozen=True)

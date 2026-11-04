@@ -12,6 +12,9 @@ wheels/
 # Local configuration — copy .env.example to .env and edit
 .env
 
-# Downloaded R package sources and generated corpus artefacts
+# Generated data: data/.gitignore ignores its contents but keeps the folder
 corpus/
-data/
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/

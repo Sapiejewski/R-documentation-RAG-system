@@ -1,6 +1,8 @@
-"""Text embeddings from a local Ollama server."""
+"""Local Ollama server: text embeddings (`OllamaEmbedder`) and generation (`OllamaLLM`)."""
 
-from rag.http import ServiceError, request_json
+from dataclasses import dataclass
+
+from rag.services.http import ServiceError, request_json
 
 
 class OllamaEmbedder:
@@ -49,3 +51,34 @@ class OllamaEmbedder:
         if not embeddings or len(embeddings) != len(inputs):
             raise ServiceError(f"Ollama returned {len(embeddings or [])} embeddings for {len(inputs)} inputs")
         return embeddings
+
+
+@dataclass(frozen=True)
+class Generation:
+    text: str
+    tokens: int
+    seconds: float  # time spent generating, excluding model load
+
+    @property
+    def tokens_per_second(self) -> float:
+        return self.tokens / self.seconds if self.seconds else 0.0
+
+
+class OllamaLLM:
+    def __init__(self, base_url: str, model: str, timeout: float = 300.0):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.timeout = timeout
+
+    def generate(self, prompt: str) -> Generation:
+        # "think": False stops reasoning models such as Qwen3 from writing a hidden
+        # chain of thought first, which is many times slower than the answer itself.
+        body = {"model": self.model, "prompt": prompt, "stream": False, "think": False}
+        data = request_json("POST", f"{self.base_url}/api/generate", body, timeout=self.timeout)
+        if "response" not in data:
+            raise ServiceError(f"Ollama returned no text for model '{self.model}'")
+        return Generation(
+            text=data["response"].strip(),
+            tokens=int(data.get("eval_count", 0)),
+            seconds=int(data.get("eval_duration", 0)) / 1e9,
+        )

@@ -2,9 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from rag.index import index_package
-from rag.search import format_hit, search
-from rag.stores import MemoryStore
+from rag.ingestion.indexing import index_package
+from rag.retrieval.search import format_hit, search
+from rag.retrieval.vector_store import MemoryStore
 from tests.fakes import FailingEmbedder, FakeEmbedder
 from tests.fixtures import RECORDS, write_extracted
 

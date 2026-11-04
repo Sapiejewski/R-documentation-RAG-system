@@ -6,8 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from rag.chunking import Chunk, chunk_record
-from rag.stores import Point, VectorStore
+from rag.ingestion.chunking import Chunk, chunk_record
+from rag.retrieval.vector_store import Point, VectorStore
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,7 @@ def index_package(
 
     store.ensure_collection(len(vectors[0]))
     store.delete_package(package)
-    store.upsert([Point(c.id, v, c.payload()) for c, v in zip(chunks, vectors)])
+    store.upsert([Point(c.id, v, c.payload()) for c, v in zip(chunks, vectors, strict=True)])
 
     topics = len({c.topic for c in chunks})
     return IndexReport(package, topics, len(chunks), duplicates, time.monotonic() - started)

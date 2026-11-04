@@ -1,4 +1,14 @@
+# Local services for the RAG system. Usually driven by the Makefile:
+#
+#   make up        Qdrant + Ollama on CPU
+#   make up-gpu    the same, with Ollama on an NVIDIA GPU (adds docker-compose.gpu.yml)
+#   make extract   one-off R container that extracts a package's help pages
+#
+# Ports are published on 127.0.0.1 only. Settings (models, ports) come from .env,
+# falling back to the defaults after ":-" below; see .env.example.
+
 services:
+  # Vector database: stores the embedded documentation chunks.
   qdrant:
     image: qdrant/qdrant:v1.19.1
     ports:
@@ -6,6 +16,7 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  # Runs the language models: embeddings and answer generation.
   ollama:
     image: ollama/ollama:0.33.3
     ports:
@@ -22,12 +33,11 @@ services:
       retries: 20
       start_period: 5s
 
+  # One-off: downloads the models into the running ollama service, then exits.
+  # Profile "init" keeps it out of a plain `docker compose up`.
   ollama-init:
     image: ollama/ollama:0.33.3
     profiles: ["init"]
-    depends_on:
-      ollama:
-        condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
     entrypoint:
@@ -35,19 +45,19 @@ services:
       - -c
       - ollama pull ${LLM_MODEL:-qwen3:1.7b} && ollama pull ${EMBEDDING_MODEL:-nomic-embed-text}
     restart: "no"
-  # R toolchain that extracts a package's help pages to data/extracted/<pkg>.jsonl.
-  # Run it with `make extract PKG=stringr` (profile "tools": never started by `up`).
-  # Installed R packages are kept in the r_lib volume, so each package is
-  # downloaded only once.
+
+  # One-off: R toolchain that writes data/extracted/<pkg>.jsonl.
+  # Profile "tools" keeps it out of `up`. Installed R packages are cached in the
+  # r_lib volume, so each package is downloaded only once.
   r-extract:
     image: rocker/r-ver:4.5.1
     profiles: ["tools"]
     working_dir: /work
     volumes:
-      - ./r:/work/r:ro
+      - ./src/extraction:/work/extraction:ro
       - ./data:/work/data
       - r_lib:/usr/local/lib/R/site-library
-    entrypoint: ["Rscript", "/work/r/extract_rd.R"]
+    entrypoint: ["Rscript", "/work/extraction/extract_rd.R"]
 
 volumes:
   qdrant_data:

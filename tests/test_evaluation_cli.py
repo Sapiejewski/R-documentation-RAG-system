@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from rag.cli import main
-from rag.evaluation import (
+from rag.evaluation.retrieval import (
     Case,
     CaseResult,
     EvalReport,
@@ -15,9 +15,9 @@ from rag.evaluation import (
     load_cases,
     rank_of_first_relevant,
 )
-from rag.index import index_package
-from rag.stores import Hit, MemoryStore
-from tests.fakes import FakeEmbedder
+from rag.ingestion.indexing import index_package
+from rag.retrieval.vector_store import Hit, MemoryStore
+from tests.fakes import FakeEmbedder, FakeServices
 from tests.fixtures import write_extracted
 
 REPO = Path(__file__).resolve().parent.parent
@@ -73,9 +73,7 @@ class EvaluateTest(unittest.TestCase):
             Case("remove whitespace from both ends", ("str_trim", "str_squish")),
             Case("quantum chromodynamics", ("str_detect",)),
         ]
-        report = evaluate(
-            cases, embedder=embedder, store=store, package="stringr", k=10
-        )
+        report = evaluate(cases, embedder=embedder, store=store, package="stringr", k=10)
         self.assertEqual(report.results[0].rank, 1)
         self.assertEqual(report.results[1].rank, 1)
         self.assertGreaterEqual(report.hit_at(5), 2 / 3)
@@ -83,7 +81,7 @@ class EvaluateTest(unittest.TestCase):
 
 class QuestionSetTest(unittest.TestCase):
     def test_stringr_question_set_is_well_formed(self):
-        cases = load_cases(REPO / "eval" / "stringr.json")
+        cases = load_cases(REPO / "eval" / "retrieval" / "stringr.json")
         self.assertGreaterEqual(len(cases), 10)
         for case in cases:
             self.assertTrue(case.question.strip())
@@ -92,7 +90,7 @@ class QuestionSetTest(unittest.TestCase):
 
     def test_missing_question_set_is_reported(self):
         with self.assertRaises(FileNotFoundError):
-            load_cases(REPO / "eval" / "does-not-exist.json")
+            load_cases(REPO / "eval" / "retrieval" / "does-not-exist.json")
 
 
 class CliTest(unittest.TestCase):
@@ -114,15 +112,11 @@ class CliTest(unittest.TestCase):
             self.assertIn("str_pad", out)
             self.assertIn("chunk size:", out)
 
-            code, out, _ = self.run_cli(
-                "inspect", "stringr", "--topic", "str_squish", data_dir=Path(tmp)
-            )
+            code, out, _ = self.run_cli("inspect", "stringr", "--topic", "str_squish", data_dir=Path(tmp))
             self.assertEqual(code, 0)
             self.assertIn("stringr::str_trim", out)  # found through its alias
 
-            code, out, _ = self.run_cli(
-                "inspect", "stringr", "--topic", "nope", data_dir=Path(tmp)
-            )
+            code, out, _ = self.run_cli("inspect", "stringr", "--topic", "nope", data_dir=Path(tmp))
             self.assertEqual(code, 1)
 
     def test_missing_package_is_a_clean_error(self):
@@ -142,6 +136,18 @@ class CliTest(unittest.TestCase):
                 code, _, err = self.run_cli("index", "stringr", data_dir=Path(tmp))
             self.assertEqual(code, 1)
             self.assertIn("make up", err)
+
+    def test_check_reports_every_service(self):
+        server = FakeServices().start()
+        self.addCleanup(server.stop)
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch.dict(os.environ, {"OLLAMA_URL": server.url, "QDRANT_URL": server.url}),
+        ):
+            code, out, _ = self.run_cli("check", data_dir=Path(tmp))
+        self.assertEqual(code, 0)
+        self.assertIn("Fits a linear model.", out)
+        self.assertIn("collection not created yet", out)
 
 
 if __name__ == "__main__":

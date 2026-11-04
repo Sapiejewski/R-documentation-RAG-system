@@ -1,6 +1,6 @@
 import unittest
 
-from rag.rdtext import parse_sections
+from rag.ingestion.rdtext import parse_sections
 from tests.fixtures import STR_PAD_TEXT
 
 

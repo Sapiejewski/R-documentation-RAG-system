@@ -2,11 +2,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from rag.embedding import OllamaEmbedder
-from rag.http import ServiceError
-from rag.index import index_package
-from rag.search import search
-from rag.stores import Point, QdrantStore
+from rag.ingestion.indexing import index_package
+from rag.retrieval.search import search
+from rag.retrieval.vector_store import Point
+from rag.services.http import ServiceError
+from rag.services.ollama import OllamaEmbedder, OllamaLLM
+from rag.services.qdrant import QdrantStore
 from tests.fakes import DIM, FakeServices, embed_text
 from tests.fixtures import write_extracted
 
@@ -43,6 +44,15 @@ class OllamaEmbedderTest(ServerTestCase):
             OllamaEmbedder(url, "m").embed_query("x")
 
 
+class OllamaLLMTest(ServerTestCase):
+    def test_generate_disables_thinking_and_reports_speed(self):
+        answer = OllamaLLM(self.server.url, "qwen3:1.7b").generate("What does lm() do?")
+        self.assertEqual(answer.text, "Fits a linear model.")
+        self.assertEqual(answer.tokens_per_second, 10.0)
+        request = self.server.generate_requests[-1]
+        self.assertEqual((request["model"], request["stream"], request["think"]), ("qwen3:1.7b", False, False))
+
+
 class QdrantStoreTest(ServerTestCase):
     def store(self, **kwargs) -> QdrantStore:
         return QdrantStore(self.server.url, "docs", **kwargs)
@@ -53,7 +63,9 @@ class QdrantStoreTest(ServerTestCase):
 
     def test_ensure_collection_creates_it_once(self):
         store = self.store()
+        self.assertFalse(store.exists())
         store.ensure_collection(DIM)
+        self.assertTrue(store.exists())
         store.ensure_collection(DIM)
         self.assertEqual(self.server.collections["docs"]["size"], DIM)
 
@@ -98,9 +110,11 @@ class EndToEndOverHttpTest(ServerTestCase):
     def test_index_then_search(self):
         with tempfile.TemporaryDirectory() as tmp:
             write_extracted(Path(tmp))
-            embedder = OllamaEmbedder(self.server.url, "m", doc_prefix="search_document: ", query_prefix="search_query: ")
+            embedder = OllamaEmbedder(
+                self.server.url, "m", doc_prefix="search_document: ", query_prefix="search_query: "
+            )
             store = QdrantStore(self.server.url, "r_docs")
-            kwargs = {"data_dir":Path(tmp), "embedder":embedder, "store":store, "log":lambda _: None}
+            kwargs = {"data_dir": Path(tmp), "embedder": embedder, "store": store, "log": lambda _: None}
             report = index_package("stringr", **kwargs)
             index_package("stringr", **kwargs)  # idempotent over HTTP too
             self.assertEqual(store.count("stringr"), report.chunks)

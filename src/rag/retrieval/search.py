@@ -1,6 +1,6 @@
 """Retrieval: embed a question and fetch the closest chunks."""
 
-from rag.stores import Hit, VectorStore
+from rag.retrieval.vector_store import Hit, VectorStore
 
 
 def search(query: str, *, embedder, store: VectorStore, k: int = 5, package: str | None = None) -> list[Hit]:

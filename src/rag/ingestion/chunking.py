@@ -11,7 +11,7 @@ import re
 import uuid
 from dataclasses import dataclass
 
-from rag.rdtext import parse_sections
+from rag.ingestion.rdtext import parse_sections
 
 # Fixed namespace, so the same topic always maps to the same point id.
 _NAMESPACE = uuid.UUID("5d3f6a0e-8c52-4a71-b0a4-2f8d3c9e6b17")

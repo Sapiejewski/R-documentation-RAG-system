@@ -45,6 +45,7 @@ class FakeServices:
     def __init__(self, missing_model: bool = False) -> None:
         self.missing_model = missing_model
         self.embed_requests: list[list[str]] = []
+        self.generate_requests: list[dict] = []
         self.api_keys: list[str | None] = []
         self.collections: dict[str, dict] = {}  # name -> {"size": int, "points": {id: point}}
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
@@ -96,6 +97,10 @@ class FakeServices:
                         return self._send(404, {"error": f"model '{body['model']}' not found"})
                     services.embed_requests.append(body["input"])
                     return self._send(200, {"embeddings": [embed_text(t) for t in body["input"]]})
+                if method == "POST" and path == "/api/generate":
+                    services.generate_requests.append(self._body())
+                    answer = {"response": " Fits a linear model. ", "eval_count": 5, "eval_duration": 500_000_000}
+                    return self._send(200, answer)
 
                 match = re.fullmatch(r"/collections/([^/]+)(/.*)?", path)
                 if not match:
@@ -133,14 +138,12 @@ class FakeServices:
                 if method == "POST" and rest == "/points/query":
                     query = body["query"]
                     scored = [
-                        (sum(a * b for a, b in zip(query, p["vector"])), p)
+                        (sum(a * b for a, b in zip(query, p["vector"], strict=True)), p)
                         for p in points.values()
                         if services._matches(p["payload"], body.get("filter"))
                     ]
                     scored.sort(key=lambda sp: -sp[0])
-                    result = [
-                        {"id": p["id"], "score": s, "payload": p["payload"]} for s, p in scored[: body["limit"]]
-                    ]
+                    result = [{"id": p["id"], "score": s, "payload": p["payload"]} for s, p in scored[: body["limit"]]]
                     return self._send(200, {"result": {"points": result}, "status": "ok"})
                 return self._send(404, {"status": {"error": f"unhandled {method} {path}"}})
 

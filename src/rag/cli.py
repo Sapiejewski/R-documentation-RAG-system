@@ -3,15 +3,16 @@
 import argparse
 import statistics
 import sys
+import time
 from pathlib import Path
 
 from rag.config import Settings
-from rag.embedding import OllamaEmbedder
-from rag.evaluation import evaluate, load_cases
-from rag.http import ServiceError
-from rag.index import build_chunks, extracted_path, index_package, read_records
-from rag.search import format_hit, search
-from rag.stores import QdrantStore
+from rag.evaluation.retrieval import evaluate, load_cases
+from rag.ingestion.indexing import build_chunks, extracted_path, index_package, read_records
+from rag.retrieval.search import format_hit, search
+from rag.services.http import ServiceError
+from rag.services.ollama import OllamaEmbedder, OllamaLLM
+from rag.services.qdrant import QdrantStore
 
 
 def _embedder(settings: Settings) -> OllamaEmbedder:
@@ -55,7 +56,7 @@ def cmd_search(args, settings: Settings) -> int:
 
 
 def cmd_evaluate(args, settings: Settings) -> int:
-    cases_path = Path(args.cases) if args.cases else Path("eval") / f"{args.package}.json"
+    cases_path = Path(args.cases) if args.cases else Path("eval") / "retrieval" / f"{args.package}.json"
     cases = load_cases(cases_path)
     report = evaluate(cases, embedder=_embedder(settings), store=_store(settings), package=args.package, k=args.k)
     for result in report.results:
@@ -104,6 +105,31 @@ def cmd_stats(args, settings: Settings) -> int:
     return 0
 
 
+def cmd_check(args, settings: Settings) -> int:
+    """One real embedding, one real generation and a look at Qdrant: does the stack work, and how fast?"""
+    print(f"Ollama at {settings.ollama_url}, Qdrant at {settings.qdrant_url}")
+    print("(the first request after startup also loads the model from disk, which is the slow part)")
+
+    started = time.perf_counter()
+    vector = _embedder(settings).embed_query("What does lm() return?")
+    print(f"embedding   {settings.embedding_model:<20} OK  dim={len(vector)}  {time.perf_counter() - started:.1f}s")
+
+    started = time.perf_counter()
+    answer = OllamaLLM(settings.ollama_url, settings.llm_model).generate(
+        "In one sentence, what does the R function lm() do?"
+    )
+    print(
+        f"generation  {settings.llm_model:<20} OK  {answer.tokens} tokens at {answer.tokens_per_second:.0f} tok/s"
+        f"  {time.perf_counter() - started:.1f}s"
+    )
+    print(f"            {answer.text[:300]}")
+
+    store = _store(settings)
+    stored = f"{store.count()} chunks" if store.exists() else "collection not created yet (run: make ingest)"
+    print(f"qdrant      {settings.collection:<20} OK  {stored}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m rag", description="RAG over R package documentation.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -121,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = commands.add_parser("evaluate", help="measure retrieval quality on a question set")
     p.add_argument("package")
-    p.add_argument("--cases", help="JSON question set (default: eval/<package>.json)")
+    p.add_argument("--cases", help="JSON question set (default: eval/retrieval/<package>.json)")
     p.add_argument("-k", type=int, default=10)
     p.add_argument("--min-hit5", type=float, default=0.0, help="exit 1 if hit@5 is below this (0-1)")
     p.set_defaults(run=cmd_evaluate)
@@ -135,6 +161,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = commands.add_parser("stats", help="count what is stored in Qdrant")
     p.add_argument("--package")
     p.set_defaults(run=cmd_stats)
+
+    p = commands.add_parser("check", help="check that Ollama and Qdrant answer, and how fast")
+    p.set_defaults(run=cmd_check)
     return parser
 
 
