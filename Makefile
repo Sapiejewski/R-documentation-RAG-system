@@ -8,7 +8,11 @@ GPU ?= auto
 GPU_FLAGS = $(shell if [ "$(GPU)" = "on" ] || { [ "$(GPU)" = "auto" ] && docker run --rm --gpus all --entrypoint true ollama/ollama:0.33.3 >/dev/null 2>&1; }; then echo "-f docker-compose.gpu.yml"; fi)
 COMPOSE = docker compose -f docker-compose.yml $(GPU_FLAGS)
 
-.PHONY: up down logs clean smoke gpu-check docker-check
+# R package to work on, e.g. `make ingest PKG=dplyr`.
+PKG ?= stringr
+UV ?= uv
+
+.PHONY: up down logs clean smoke gpu-check docker-check extract index ingest search evaluate test
 
 .env:
 	cp .env.example .env
@@ -31,6 +35,32 @@ clean: docker-check
 
 smoke: docker-check
 	sh scripts/smoke.sh
+
+# --- documentation ingestion --------------------------------------------------
+# Typical flow: make up && make ingest PKG=stringr && make evaluate PKG=stringr
+
+# Extract the help pages of an R package to data/extracted/$(PKG).jsonl (R in Docker).
+extract: docker-check
+	mkdir -p data/extracted
+	docker compose --profile tools run --rm r-extract $(PKG) /work/data/extracted
+
+# Chunk, embed and store the extracted pages in Qdrant (needs `make up` first).
+index:
+	$(UV) run python -m rag index $(PKG)
+
+ingest: extract index
+
+# Try a query:  make search q="pad a string with zeros"
+search:
+	$(UV) run python -m rag search "$(q)" -k 5
+
+# Measure retrieval quality on eval/$(PKG).json
+evaluate:
+	$(UV) run python -m rag evaluate $(PKG)
+
+# Unit tests (no Docker needed).
+test:
+	$(UV) run python -m unittest discover -s tests
 
 # Expect library=cuda and PROCESSOR "100% GPU" (after a model has been used).
 gpu-check: docker-check

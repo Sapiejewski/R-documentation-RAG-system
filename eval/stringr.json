@@ -1,0 +1,18 @@
+[
+  {"question": "How do I check whether a string contains a pattern?", "expected": ["str_detect"]},
+  {"question": "Pad a string with zeros so it has a fixed width", "expected": ["str_pad"]},
+  {"question": "Remove leading and trailing whitespace from text", "expected": ["str_trim", "str_squish"]},
+  {"question": "Extract the first match of a regular expression from each string", "expected": ["str_extract"]},
+  {"question": "Replace every occurrence of a pattern in a string", "expected": ["str_replace_all", "str_replace"]},
+  {"question": "Count how many times a pattern appears in a string", "expected": ["str_count"]},
+  {"question": "Split a string into pieces at a delimiter", "expected": ["str_split"]},
+  {"question": "Convert text to upper case", "expected": ["str_to_upper"]},
+  {"question": "Get a substring by start and end position", "expected": ["str_sub"]},
+  {"question": "Join several strings together into one", "expected": ["str_c", "str_flatten", "str_glue"]},
+  {"question": "Find the number of characters in a string", "expected": ["str_length"]},
+  {"question": "Get the capture groups of a regular expression match", "expected": ["str_match"]},
+  {"question": "Repeat a string several times", "expected": ["str_dup"]},
+  {"question": "Shorten long strings and add an ellipsis", "expected": ["str_trunc"]},
+  {"question": "Sort a character vector alphabetically", "expected": ["str_sort", "str_order"]},
+  {"question": "Wrap text into lines of a given width", "expected": ["str_wrap"]}
+]

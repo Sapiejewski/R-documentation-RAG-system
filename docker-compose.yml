@@ -22,8 +22,6 @@ services:
       retries: 20
       start_period: 5s
 
-  # One-shot job run by `make up`: pulls the models into the ollama volume.
-  # Not started by plain `docker compose up` (profile "init").
   ollama-init:
     image: ollama/ollama:0.33.3
     profiles: ["init"]
@@ -37,7 +35,21 @@ services:
       - -c
       - ollama pull ${LLM_MODEL:-qwen3:1.7b} && ollama pull ${EMBEDDING_MODEL:-nomic-embed-text}
     restart: "no"
+  # R toolchain that extracts a package's help pages to data/extracted/<pkg>.jsonl.
+  # Run it with `make extract PKG=stringr` (profile "tools": never started by `up`).
+  # Installed R packages are kept in the r_lib volume, so each package is
+  # downloaded only once.
+  r-extract:
+    image: rocker/r-ver:4.5.1
+    profiles: ["tools"]
+    working_dir: /work
+    volumes:
+      - ./r:/work/r:ro
+      - ./data:/work/data
+      - r_lib:/usr/local/lib/R/site-library
+    entrypoint: ["Rscript", "/work/r/extract_rd.R"]
 
 volumes:
   qdrant_data:
   ollama_data:
+  r_lib:
