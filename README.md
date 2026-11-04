@@ -29,4 +29,4 @@ make lint     # ruff
 make format   # automatyczne poprawki
 ```
 
-Dokumentacja: [roadmapa](docs/roadmap.md), [decyzje](docs/decisions.md), [infrastruktura](docs/infrastructure.md).
+Dokumentacja: [roadmapa](docs/roadmap.md), [architektura](docs/architecture.md), [decyzje](docs/decisions.md), [infrastruktura](docs/infrastructure.md).

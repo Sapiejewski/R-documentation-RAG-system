@@ -5,7 +5,12 @@ zintegrowany z RStudio, wraz z oceną, na ile poprawia on jakość odpowiedzi mo
 pytania o R.**
 
 Wszystko działa lokalnie (Ollama + Qdrant w Dockerze): bez kosztów API, bez wysyłania kodu
-użytkownika na zewnątrz, z powtarzalnymi wynikami.
+użytkownika na zewnątrz, z powtarzalnymi wynikami. Lokalność to założenie projektu, nie opcja —
+porównujemy lokalne modele różnej wielkości, nie modele chmurowe.
+
+**Wyróżnik:** asystent zna dokumentację w **wersjach zainstalowanych u użytkownika** i aktualizuje
+się sam — instalacja pakietu na hoście wyzwala reingest, a pakiet jest od razu dostępny w RAG.
+Ogólne LLM-y mylą wersje (argumenty dodane/usunięte między wydaniami); ten system nie powinien.
 
 ## Pytania badawcze
 
@@ -26,6 +31,7 @@ Praca ma pokazywać **widoczny, mierzalny zysk**. Każdy etap roadmapy kończy s
 | Zysk | Miara | Porównanie |
 |---|---|---|
 | Lepsze wyszukiwanie | hit@k, MRR | warianty retrievalu (chunking, embeddingi, BM25, reranker) |
+| Aktualność indeksu | czas od instalacji pakietu do dostępności w RAG; czas synchronizacji | pełny reingest vs przyrostowy |
 | Poprawniejsze odpowiedzi | % odpowiedzi, których kod działa i daje dobry wynik | bez RAG vs z RAG |
 | Mniej halucynacji | % odpowiedzi z nieistniejącą funkcją/argumentem | bez RAG vs z RAG |
 | Tańszy sprzęt | jakość małego modelu z RAG vs dużego bez RAG | qwen3 1.7b / 4b / 8b |
@@ -43,6 +49,6 @@ dobrze jak kilkukrotnie większy model bez RAG* — czyli ten sam efekt na zwyk�
 
 ## Rezultaty
 
-- Działający system (CLI + HTTP API + addin RStudio).
+- Działający system (CLI + HTTP API + addin RStudio); na hoście potrzebny tylko R, reszta w Dockerze.
 - Zbiory ewaluacyjne (retrieval i odpowiedzi) z wynikami eksperymentów w `results/`.
 - Tekst pracy (osobno, później).
