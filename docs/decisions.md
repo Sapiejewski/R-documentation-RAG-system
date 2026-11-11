@@ -3,6 +3,59 @@
 Krótko: co, dlaczego, jakie alternatywy. Najnowsze na górze. Przyda się przy pisaniu
 rozdziału o implementacji.
 
+## 2026-11 — Klient R na hoście, `init` / `doctor`, dwa tryby
+
+Problem: biblioteki R hosta były podłączane do kontenera bind mountem. Folder musiał istnieć
+(biblioteka osobista powstaje dopiero przy pierwszym `install.packages()`), a zestaw folderów był
+sztywny — nie da się wskazać dowolnego folderu (addin, `renv`) bez zmiany `docker-compose.yml`.
+
+- **Klient R działa na hoście** (część M2 przesunięta do M1): R użytkownika widzi każdy folder,
+  `.libPaths()` podaje tylko istniejące biblioteki. Kontenery nie montują folderów hosta.
+- **Biblioteka = jej ścieżka** (bezwzględna, z `/`). Wybór: `init` pyta, zapis `RDOCS_LIBRARIES`
+  (separator jak w `R_LIBS`: `:` / `;` na Windowsie); bez wyboru — `.libPaths()`. Jedno miejsce
+  wyboru (`selected_libraries()`) podmieni później addin.
+- **`init` i `doctor` to te same kontrole** (`CHECKS` w `src/client/setup.R`): każda zwraca wynik,
+  podpowiedź i opcjonalną naprawę. `doctor` raportuje, `init` proponuje naprawy. Nowe wymaganie =
+  nowa kontrola + wiersz w tabeli wymagań ([setup.md](setup.md)).
+- **Nic bez zgody:** instalacja R, httr2 i start usług tylko po „tak”; bez terminala zawsze „nie”.
+- **Bootstrap w dwóch małych skryptach** (`init.sh` dla Linuxa/macOS, `init.ps1` dla Windowsa),
+  bo nie ma języka obecnego wszędzie przed instalacją R; robią tylko „czy jest R?”. Reszta w R —
+  działa tak samo na każdym systemie i przejdzie wprost do pakietu R (M2) i addina (M6).
+  Odrzucone: Python (sprzeczny z „na hoście tylko R”), jeden skrypt sh (brak na Windowsie).
+- **`GET /health` raportuje zależności** (Qdrant, Ollama, modele), żeby każdy klient — `doctor`,
+  addin, `curl` — widział to samo. Zawsze 200, gdy API działa (healthcheck Dockera), `degraded` z przyczyną.
+- **Tryb docker** (`make sync-docker`): ten sam klient w kontenerze, tylko biblioteka Dockera
+  z datowanego snapshotu CRAN. Dla osób bez R i jako **stały korpus do ewaluacji** — wyniki
+  powtarzalne na każdej maszynie, niezależne od tego, co ktoś ma zainstalowane.
+- Folder `src/extraction` → `src/client`: to już cały klient R hosta, nie tylko ekstrakcja.
+- Konfiguracja na razie w `.env` projektu; w M2 przejdzie do `tools::R_user_dir("rdocs", "config")`.
+
+## 2026-11 — Testy według poziomów: unit → integration → contract → e2e
+
+- Katalog na poziom (`tests/unit`, `integration`, `contract`, `e2e`), Python i R razem
+  (`tests/<poziom>/r/` dla testthat) — poziom testu widać po ścieżce, nie po języku.
+  Każdy katalog ma `__init__.py` z opisem: co pokrywa i czego potrzebuje.
+- Kontrakt R ↔ Python: wspólne przykłady żądań (`tests/contract/examples/*.json`). Python sprawdza,
+  że API je przyjmuje; R — że klient wysyła żądania o tym samym kształcie (te same pola na każdym
+  poziomie). Rozjazd po jednej stronie psuje test, a nie synchronizację u użytkownika.
+- e2e na prawdziwym stosie, ale na własnym kontenerze API i jednorazowej kolekcji: test nie rusza
+  indeksu użytkownika. Poza `make test` (wymaga `make up`, trwa ok. 30 s).
+- Testy R w osobnej usłudze `r-test` (ten sam obraz co `r-extract`), która montuje tylko kod
+  i testy: nie potrzebuje bibliotek z `.env` ani działających usług.
+
+## 2026-11 — Klient R przez HTTP (`src/extraction/`)
+
+- Dwa pliki według roli: `extract.R` czyta zainstalowane pakiety (bez sieci), `api.R` prowadzi
+  rozmowę z API. Klient nie podejmuje decyzji: wysyła manifest i robi to, o co prosi plan.
+- `api_post()` to jedyne miejsce z httr2: JSON, do 3 prób przy 503 (bezpieczne, bo API jest
+  idempotentne), a przy błędzie treść odpowiedzi serwisu (np. które pole jest złe).
+- Błąd jednego pakietu: komunikat i przejście do następnego; bez `commit` stara wersja zostaje
+  aktywna, a następny sync poprosi o pakiet ponownie. `make sync` kończy się błędem, gdy coś zawiodło.
+- Testy `testthat` z `httr2::local_mocked_responses`: fałszywe API nagrywa żądania, testy sprawdzają
+  kolejność rozmowy, rozmiar paczek, pola zgodne ze schematem `HelpPage`. Bez Dockera z usługami
+  i bez Pythona. Zgodność z prawdziwym API: kontrakt i e2e (zob. wpis o poziomach testów).
+- Pliki `data/extracted/` znikają: nic nie jest zapisywane na dysk po drodze.
+
 ## 2026-11 — HTTP API synchronizacji (`rag/api/`)
 
 - Endpointy odpowiadają krokom `Indexer`: `POST /sync`, `/packages/begin`, `/packages/pages`,

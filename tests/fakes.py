@@ -49,7 +49,11 @@ class FailingEmbedder:
 
 
 class FakeOllama:
-    """A local HTTP server that imitates the parts of Ollama that rag uses (embed, generate)."""
+    """A local HTTP server that imitates the parts of Ollama that rag uses (embed, generate,
+    list pulled models). With `missing_model`, no model is pulled."""
+
+    # What `ollama list` shows after `make up` with the default models.
+    PULLED = ("nomic-embed-text:latest", "qwen3:1.7b")
 
     def __init__(self, missing_model: bool = False) -> None:
         self.missing_model = missing_model
@@ -84,6 +88,12 @@ class FakeOllama:
                 self.send_header("Content-Length", str(len(raw)))
                 self.end_headers()
                 self.wfile.write(raw)
+
+            def do_GET(self):
+                if self.path == "/api/tags":
+                    pulled = [] if services.missing_model else services.PULLED
+                    return self._send(200, {"models": [{"name": name} for name in pulled]})
+                return self._send(404, {"error": f"unhandled GET {self.path}"})
 
             def do_POST(self):
                 length = int(self.headers.get("Content-Length") or 0)

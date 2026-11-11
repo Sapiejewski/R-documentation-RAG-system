@@ -24,29 +24,41 @@ Zasady:
 
 Od razu docelowy protokół (bez plików pośrednich): cienki klient R wysyła tylko to, o co poprosi serwis.
 
-- [x] Wybór bibliotek w `.env` (`R_SYSTEM_LIBRARY`, `R_USER_LIBRARY`), bind mount tylko do odczytu (przejściowo)
+- [x] Pierwsze uruchomienie jednym poleceniem: `make init` / `.\init.ps1` — bootstrap szuka R (instalacja tylko za zgodą), reszta w R: kontrole z naprawami, wybór bibliotek, start usług; `make doctor` — te same kontrole jako raport ([setup.md](setup.md))
+- [x] Wybór bibliotek: `init` pyta (domyślnie `.libPaths()`, plus dowolne foldery), zapis `RDOCS_LIBRARIES`; biblioteka identyfikowana ścieżką
+- [x] Klient R na hoście (`make sync`) — koniec bind mountów; tryb docker (`make sync-docker`) dla osób bez R i jako stały korpus do ewaluacji
+- [x] `GET /health` raportuje stan Qdranta, Ollamy i pobranych modeli (widzi to `doctor`, później addin)
+- [ ] Sprawdzić `init.ps1` i cały przepływ na Windowsie; sprawdzić przepływ na macOS
 - [x] Ekstrakcja bez instalowania pakietów (tylko odczyt plików); tryb `install` dla eksperymentów
 - [x] Manifest biblioteki: `(pakiet, Version, Built)` z plików `DESCRIPTION` — porównanie bez zmian: 50 s → 1,2 s
 - [x] Usługa `rag` w Dockerze z HTTP API (FastAPI): `POST /sync` (manifest → plan), `begin`, paczki stron, `commit`, `GET /health`; schematy i dokumentacja pod `/docs`
 - [x] Stan indeksu w Qdrancie: rejestr pakietów (kolekcja bez wektorów) + `library`, `built`, `generation`, `content_hash`, `active` w payloadzie chunków
 - [x] Hash treści chunka (`sha256(tożsamość embeddera + tekst)`): embedding tylko dla nowych tekstów, wektory reszty kopiowane z Qdranta
 - [x] Spójność per pakiet (logika `Indexer` + testy): stara wersja aktywna do `commit`; przerwany transfer = ponowna prośba przy następnym syncu
-- [ ] Cienki klient R (httr2): manifest → `/sync` → wysyłka paczek stron → `commit`; uruchamiany w `r-extract`
+- [x] Cienki klient R (httr2): manifest → `/sync` → wysyłka paczek stron → `commit`; bez plików pośrednich
 - [x] Logowanie (`logging`, poziom z `LOG_LEVEL`): `Indexer` loguje plan i commit
 - [x] Logowanie każdego żądania API: metoda, ścieżka, status, czas (`make logs`); błędy walidacji jako WARNING, niedostępna Ollama/Qdrant jako 503 + ERROR
+- [x] Próba end-to-end (R → API → Ollama → Qdrant) na 3 małych pakietach: pierwszy sync 27 s, bez zmian 1,5 s, usunięcie pakietu działa; wąskie gardło to embedding (11,6 z 12 s pakietu tcltk na CPU)
+- [x] Porządek testów według poziomu, każdy poziom w swoim katalogu `tests/<poziom>/` (Python i R razem):
+  - **unit** — logika bez I/O (chunking, `rdtext`, schematy, `Indexer` na `MemoryStore`, metryki; R: czytanie pakietów); `make test-unit`, sekundy
+  - **integration** (infrastruktura) — prawdziwe usługi: Qdrant przez testcontainers, klienci HTTP na `FakeOllama`, CLI
+  - **contract** (kontrakty API) — API przez `TestClient` (statusy, walidacja) i klient R na fałszywym API;
+    wspólne przykłady żądań (`tests/contract/examples/`) sprawdzane po obu stronach
+  - **e2e** — cały stos: R → API → Ollama → Qdrant (instalacja, sync, ponowny sync, odinstalowanie); `make test-e2e`, ok. 30 s
+  - `make test` = unit + integration + contract (Python i R); od teraz każda nowa funkcja dostaje testy na odpowiednich poziomach
+- [ ] Biblioteka, której już nie ma (odmontowana, usunięty projekt `renv`): jej pakiety znikają z indeksu przy najbliższym syncu
 - [ ] Iteracyjnie: base R, potem data.table, stringr, dplyr (po jednym), usunięcie i reinstalacja pakietu
 - [x] Testy z prawdziwym Qdrantem przez testcontainers (zamiast fałszywego serwera HTTP)
-- [ ] Testy klienta R (testthat)
+- [x] Testy klienta R (testthat, `make test-r`): pola stron = schemat API, kolejność rozmowy, paczki, błąd jednego pakietu nie zatrzymuje reszty; kontrole i pytania `init`; e2e w obu trybach
 
 **Zysk:** czas synchronizacji: pełne przeindeksowanie vs poziom pakietu vs poziom pakietu + chunków;
 gdzie jest wąskie gardło (ekstrakcja w R, transport, embedding).
 
 ## M2 — Pakiet R na hoście: dynamiczna synchronizacja
 
-- [ ] Klient R z M1 jako pakiet na hoście: manifest bibliotek z `.libPaths()`
+- [ ] Klient R z M1 jako pakiet R (`rdocs`): `setup()`, `doctor()`, `sync()`; konfiguracja w `tools::R_user_dir()` zamiast `.env`
 - [ ] Wyzwalacze: start sesji, `addTaskCallback()` (po każdej komendzie, tani test zmian), ręcznie `sync()`
 - [ ] Wysyłka w procesie R w tle — nie blokuje konsoli użytkownika
-- [ ] Koniec bind mountu: kontener nie dotyka dysku hosta; na hoście tylko R
 - [ ] Biblioteki projektów `renv` (pole `library` w Qdrancie)
 
 **Zysk:** czas od `install.packages()` do dostępności pakietu w RAG.

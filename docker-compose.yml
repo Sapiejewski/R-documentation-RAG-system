@@ -2,8 +2,10 @@
 #
 #   make up        Qdrant + Ollama (CPU) + the rag API
 #   make up-gpu    the same, with Ollama on an NVIDIA GPU (adds docker-compose.gpu.yml)
-#   make install   one-off R container: install a package into the Docker-only library
-#   make sync      one-off R container: read the help pages of the mounted R libraries
+#   make sync-docker   R client in a container: index the Docker library (no R needed on your computer)
+#   make install       R client in a container: install a package into the Docker library
+#
+# `make init` / `make sync` run the R client in your own R instead: docs/setup.md.
 #
 # Ports are published on 127.0.0.1 only. Settings (models, ports) come from .env,
 # falling back to the defaults after ":-" below; see .env.example.
@@ -73,39 +75,37 @@ services:
       - ollama pull ${LLM_MODEL:-qwen3:1.7b} && ollama pull ${EMBEDDING_MODEL:-nomic-embed-text}
     restart: "no"
 
-  # One-off: reads the help pages of the R libraries below and writes
-  # data/extracted/<library>/<package>.jsonl (make sync / make install).
+  # Docker mode of the R client (make sync-docker, make install), for running without R on
+  # your computer: it indexes only its own library, the r_docker_lib volume, filled by
+  # `make install PKG=...` from a dated CRAN snapshot -- the same versions on every machine.
+  # (Host mode, the default, runs the same R code in your own R: docs/setup.md.)
   # Profile "tools" keeps it out of `up`.
   r-extract:
-    build:
-      context: src/extraction
-      args:
-        HOST_UID: ${HOST_UID:-1000}
+    build: src/client
     profiles: ["tools"]
-    # Run as the host user, so the files it writes in data/ are yours, not root's.
-    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /work
+    environment:
+      RAG_URL: http://rag:8000
+      RDOCS_LIBRARIES: /libraries/docker
+    depends_on:
+      rag:
+        condition: service_healthy
+    volumes:
+      - ./src/client:/work/src/client:ro
+      - r_docker_lib:/libraries/docker
+    entrypoint: ["Rscript", "/work/src/client/main.R"]
+
+  # One-off: the R client's tests (make test-r), same image as r-extract. Only the code and
+  # the tests are mounted -- no R libraries, no services: the tests read base R packages and
+  # talk to a fake API.
+  r-test:
+    build: src/client
+    profiles: ["tools"]
     working_dir: /work
     volumes:
-      - ./src/extraction:/work/extraction:ro
-      - ./data:/work/data
-      # Host R libraries, read-only. Set the paths in .env (see .env.example).
-      # create_host_path: false -> a wrong path is an error, instead of Docker silently
-      # creating an empty root-owned folder where R would later want to install.
-      - type: bind
-        source: ${R_SYSTEM_LIBRARY:-/usr/lib/R/library}
-        target: /libraries/system
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: ${R_USER_LIBRARY:-/R_USER_LIBRARY-is-not-set-see-.env.example}
-        target: /libraries/user
-        read_only: true
-        bind:
-          create_host_path: false
-      # Docker-only library for reproducible experiments (make install PKG=...).
-      - r_docker_lib:/libraries/docker
-    entrypoint: ["Rscript", "/work/extraction/main.R"]
+      - ./src/client:/work/src/client:ro
+      - ./tests:/work/tests:ro
+    entrypoint: ["Rscript", "-e", "for (dir in c('tests/unit/r', 'tests/contract/r')) testthat::test_dir(dir)"]
 
 volumes:
   qdrant_data:

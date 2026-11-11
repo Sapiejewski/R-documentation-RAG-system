@@ -21,9 +21,8 @@ from rag.schemas import IndexedPackage
 from rag.services.http import ServiceError
 from rag.services.qdrant import QdrantPackageRegistry, QdrantStore
 from tests.fakes import DIM, FakeEmbedder, FakeOllama, embed_text
-from tests.fixtures import OVERVIEW, PAGES, STRINGR, sync_package
+from tests.fixtures import OVERVIEW, PAGES, STRINGR, manifest, send_package, sync_package
 from tests.qdrant import empty, fresh_collection, qdrant_url, shared_collection
-from tests.test_api import manifest, send_package
 
 
 class QdrantTestCase(unittest.TestCase):

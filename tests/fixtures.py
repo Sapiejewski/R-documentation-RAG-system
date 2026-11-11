@@ -159,6 +159,28 @@ PAGES = [
 ]
 
 
+def manifest(*installations: Installation, library: str = "user") -> dict:
+    """The body of POST /sync: what the R client lists for one library."""
+    return {
+        "library": library,
+        "packages": [{"package": i.package, "version": i.version, "built": i.built} for i in installations],
+    }
+
+
+def send_package(client, inst: Installation = STRINGR, pages: list[dict] = PAGES) -> dict:
+    """What the R client does over HTTP (client: a FastAPI TestClient) for one package the plan
+    asked for: begin, pages in batches of the plan's batch_size, commit. Returns the commit answer."""
+    installation = inst.model_dump()
+    client.post("/packages/begin", json={"installation": installation} | OVERVIEW).raise_for_status()
+    batch_size = client.post("/sync", json=manifest(inst, library=inst.library)).json()["batch_size"]
+    for start in range(0, len(pages), batch_size):
+        batch = pages[start : start + batch_size]
+        client.post("/packages/pages", json={"installation": installation, "pages": batch}).raise_for_status()
+    response = client.post("/packages/commit", json={"installation": installation})
+    response.raise_for_status()
+    return response.json()
+
+
 def sync_package(indexer, inst: Installation = STRINGR, pages: list[dict] = PAGES, overview: dict = OVERVIEW) -> int:
     """What the R client does for one package the plan asked for. Returns the committed chunk count."""
     indexer.begin(inst, overview["title"], overview["description"])

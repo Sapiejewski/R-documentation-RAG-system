@@ -9,26 +9,17 @@ jeszcze na hoście i łączą się z usługami przez porty na `127.0.0.1`.
 | `ollama` | `ollama/ollama` | 11434 | modele: embeddingi i generacja (wolumen `ollama_data`) |
 | `rag` | `Dockerfile` (w katalogu głównym) | 8000 | serwis Pythona: HTTP API synchronizacji (`/docs` — endpointy i schematy) |
 | `ollama-init` | `ollama/ollama` | — | jednorazowo pobiera modele z `.env` (`make up` / `make up-gpu`) |
-| `r-extract` | `src/extraction/Dockerfile` (`rocker/r-ver`) | — | klient R: manifest i strony pomocy bibliotek z `.env` (`make sync`); `make install` instaluje do wolumenu `r_docker_lib` |
+| `r-extract` | `src/client/Dockerfile` (`rocker/r-ver`) | — | klient R w trybie docker: indeksuje bibliotekę Dockera (`make sync-docker`), instaluje do niej (`make install`, wolumen `r_docker_lib`) |
+| `r-test` | ten sam obraz | — | testy R (`make test-r`); montuje tylko kod i testy |
 
 ## Konfiguracja
 
-`cp .env.example .env` i edycja. Zmienne są opisane w `.env.example`; wymagana jest tylko
-`R_USER_LIBRARY` (dla `make sync`). Docker Compose i kod Pythona (`rag/config.py`) czytają `.env`
-same — Makefile go nie potrzebuje.
+`make init` (Windows: `.\init.ps1`) tworzy `.env` z `.env.example` i zapisuje w nim wybrane biblioteki
+(`RDOCS_LIBRARIES`); resztę zmiennych opisuje `.env.example`, wszystkie są opcjonalne. `.env` czytają
+Docker Compose, kod Pythona (`rag/config.py`) i klient R (`src/client/config.R`) — Makefile go nie potrzebuje.
 
-## Biblioteki R (`make sync`)
-
-| Zmienna | Montowana jako | Domyślnie |
-|---|---|---|
-| `R_SYSTEM_LIBRARY` | `/libraries/system` (tylko odczyt) | `/usr/lib/R/library` (base R na Debianie/Ubuntu) |
-| `R_USER_LIBRARY` | `/libraries/user` (tylko odczyt) | brak — w R: `Sys.getenv("R_LIBS_USER")` |
-| — | `/libraries/docker` (wolumen `r_docker_lib`) | biblioteka eksperymentów (`make install`) |
-| `HOST_UID`, `HOST_GID` | użytkownik kontenera | `1000` — pliki w `data/` należą do ciebie, nie do roota |
-
-Oba foldery muszą istnieć (`create_host_path: false`): zła ścieżka to czytelny błąd zamiast
-pustego folderu roota, w którym R nie mógłby potem instalować. Bibliotekę użytkownika R tworzy
-przy pierwszym `install.packages()`; można też `mkdir -p` wcześniej.
+Biblioteki R, tryby klienta (host / docker) i przepływ na każdym systemie: [setup.md](setup.md).
+Kontenery nie montują żadnych folderów hosta z bibliotekami.
 
 ## CPU czy GPU
 

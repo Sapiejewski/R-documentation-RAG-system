@@ -1,0 +1,12 @@
+{
+  "installation": {"library": "/usr/lib/R/library", "package": "compiler", "version": "4.3.3", "built": "R 4.3.3; ; 2024-04-21 13:34:43 UTC; unix"},
+  "pages": [
+    {
+      "name": "compile",
+      "title": "Byte Code Compiler",
+      "aliases": ["compile", "cmpfun", "cmpfile"],
+      "keywords": ["programming"],
+      "text": "compile                package:compiler                R Documentation\n\nByte Code Compiler\n\nDescription:\n\n     These functions provide an interface to a byte code compiler for R.\n\nUsage:\n\n     cmpfun(f, options = NULL)\n"
+    }
+  ]
+}

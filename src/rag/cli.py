@@ -38,8 +38,9 @@ def cmd_serve(args, settings: Settings) -> int:
     import uvicorn  # only this command needs the web server
 
     from rag.api.app import create_app
+    from rag.services.status import service_status
 
-    app = create_app(_indexer(settings), settings.collection)
+    app = create_app(_indexer(settings), settings.collection, lambda: service_status(settings))
     # log_config=None: keep our logging setup; access_log=False: the app logs each request itself.
     uvicorn.run(app, host=args.host, port=args.port, log_config=None, access_log=False)
     return 0

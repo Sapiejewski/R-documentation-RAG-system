@@ -30,11 +30,13 @@ wykrywa zmianę biblioteki → ekstrakcja tylko zmienionych pakietów → wysła
 - Serwis `rag` (HTTP API, `src/rag/api/`) działa już w Dockerze (`make up`). Komendy `rag search`,
   `evaluate`, `check` i testy działają jeszcze na hoście przez `uv` (wygodny development) —
   **do przeniesienia** w kolejnych etapach roadmapy; docelowo Python tylko w Dockerze.
-- Klient R (M1) działa w kontenerze `r-extract` i rozmawia z serwisem przez ten sam HTTP API co docelowo
-  (w budowie: na razie zapisuje jeszcze pliki `data/extracted/`).
-- Biblioteki hosta (od M1): **bind mount tylko do odczytu** do kontenera `r-extract`.
-  To **rozwiązanie przejściowe**: folder jest ustalany przy starcie compose i nie da się go zmienić
-  dynamicznie, a kontener nie wie, kiedy użytkownik coś zainstalował.
+- Klient R (`src/client/`) działa już **na hoście**, w R użytkownika (`make sync`), z tym samym
+  HTTP API co docelowo. Pliki: `config.R` (`.env`, wybrane biblioteki), `extract.R` (czytanie
+  pakietów), `api.R` (rozmowa z API), `setup.R` (`init`, `doctor`), `main.R` (polecenia).
+  Brakuje jeszcze tylko opakowania w pakiet R i wyzwalaczy (M2).
+- Biblioteki wybiera użytkownik w `init` (domyślnie `.libPaths()`); kontener nie dotyka dysku hosta.
+- Ten sam klient działa też w kontenerze `r-extract` (tryb docker) — dla osób bez R i jako stały
+  korpus do ewaluacji. Przepływ na każdym systemie: [setup.md](setup.md).
 
 ## Dlaczego ekstrakcja działa między wersjami R
 

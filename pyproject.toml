@@ -32,7 +32,8 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# `pytest` alone runs every level except e2e (slow, needs the running stack: make test-e2e).
+testpaths = ["tests/unit", "tests/integration", "tests/contract"]
 
 [tool.ruff]
 line-length = 120

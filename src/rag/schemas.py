@@ -7,7 +7,7 @@ request is rejected with a clear message before any of our code runs. All are im
 instead of silently missing data.
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
@@ -119,9 +119,19 @@ class CommitRequest(Schema):
     installation: Installation
 
 
-class Health(Schema):
-    """`GET /health`: the service is up, and how it indexes (a change means a full reindex)."""
+class ServiceStatus(Schema):
+    """One service the API depends on (Qdrant, Ollama): reachable and ready, or what is wrong."""
 
-    status: str
+    name: str
+    ok: bool
+    detail: str
+
+
+class Health(Schema):
+    """`GET /health`: the service is up ("ok"), or up but a dependency is not ("degraded");
+    how it indexes (a change means a full reindex); the state of each dependency."""
+
+    status: Literal["ok", "degraded"]
     collection: str
     index_format: str
+    services: list[ServiceStatus]

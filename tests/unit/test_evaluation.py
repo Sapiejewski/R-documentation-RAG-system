@@ -1,11 +1,10 @@
+"""Retrieval metrics (hit@k, MRR), the evaluation loop on in-memory stores, the question sets, logging."""
+
 import contextlib
 import io
-import os
 import unittest
 from pathlib import Path
-from unittest import mock
 
-from rag.cli import main
 from rag.evaluation.retrieval import (
     Case,
     CaseResult,
@@ -20,7 +19,7 @@ from rag.retrieval.vector_store import Hit, MemoryStore
 from tests.fakes import FakeEmbedder
 from tests.fixtures import sync_package
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 
 
 def hit(topic: str, *aliases: str) -> Hit:
@@ -83,20 +82,6 @@ class QuestionSetTest(unittest.TestCase):
     def test_missing_question_set_is_reported(self):
         with self.assertRaises(FileNotFoundError):
             load_cases(REPO / "eval" / "retrieval" / "does-not-exist.json")
-
-
-class CliTest(unittest.TestCase):
-    def test_unreachable_services_are_a_clean_error(self):
-        env = {"OLLAMA_URL": "http://127.0.0.1:9", "QDRANT_URL": "http://127.0.0.1:9"}
-        err = io.StringIO()
-        with (
-            mock.patch.dict(os.environ, env),
-            contextlib.redirect_stderr(err),
-            contextlib.redirect_stdout(io.StringIO()),
-        ):
-            code = main(["search", "pad a string"])
-        self.assertEqual(code, 1)
-        self.assertIn("make up", err.getvalue())
 
 
 class LoggingTest(unittest.TestCase):

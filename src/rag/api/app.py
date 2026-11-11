@@ -4,7 +4,7 @@
     POST /packages/begin    start sending one package (its overview)
     POST /packages/pages    one batch of its help pages
     POST /packages/commit   all sent: switch searches to the new version
-    GET  /health            the service is up; the index format it uses
+    GET  /health            the service is up; the index format; are Qdrant and Ollama ready
 
 Interactive documentation with every request and response schema: /docs.
 
@@ -19,6 +19,7 @@ and needs no job queue or status polling.
 
 import logging
 import time
+from collections.abc import Callable
 from importlib.metadata import version
 
 from fastapi import FastAPI, Request
@@ -31,6 +32,7 @@ from rag.schemas import (
     CommitRequest,
     Health,
     PagesRequest,
+    ServiceStatus,
     StoreReport,
     SyncPlan,
     SyncRequest,
@@ -40,8 +42,9 @@ from rag.services.http import ServiceError
 log = logging.getLogger(__name__)
 
 
-def create_app(indexer: Indexer, collection: str) -> FastAPI:
-    """The app around one indexer. Tests pass one on in-memory stores; `rag serve` one on Qdrant."""
+def create_app(indexer: Indexer, collection: str, service_status: Callable[[], list[ServiceStatus]] = list) -> FastAPI:
+    """The app around one indexer. Tests pass one on in-memory stores; `rag serve` one on Qdrant,
+    with `service_status` checking the real services (rag/services/status.py)."""
     app = FastAPI(title="R documentation RAG", version=version("r-docs-rag"))
 
     @app.middleware("http")
@@ -66,7 +69,11 @@ def create_app(indexer: Indexer, collection: str) -> FastAPI:
 
     @app.get("/health")
     def health() -> Health:
-        return Health(status="ok", collection=collection, index_format=indexer.index_format)
+        # Always 200 while the API itself runs (Docker's health check means "the API is up");
+        # a dependency that is down makes it "degraded", with the reason in `services`.
+        services = service_status()
+        status = "ok" if all(s.ok for s in services) else "degraded"
+        return Health(status=status, collection=collection, index_format=indexer.index_format, services=services)
 
     @app.post("/sync")
     def sync(request: SyncRequest) -> SyncPlan:

@@ -1,6 +1,6 @@
-"""The HTTP API (rag/api), driven the way the R client will drive it, on in-memory stores.
+"""The HTTP API (rag/api) as the R client sees it: status codes, validation, answers. In-memory stores.
 
-The same conversation against a real Qdrant is in test_qdrant.py (ApiOnQdrantTest).
+The same conversation against a real Qdrant: integration/test_qdrant.py (ApiOnQdrantTest).
 """
 
 import unittest
@@ -12,32 +12,10 @@ from rag.ingestion.indexing import Indexer
 from rag.ingestion.registry import MemoryRegistry
 from rag.retrieval.search import search
 from rag.retrieval.vector_store import MemoryStore
-from rag.schemas import MAX_PAGES_PER_REQUEST, Installation
+from rag.schemas import MAX_PAGES_PER_REQUEST, ServiceStatus
 from rag.services.http import ServiceError
 from tests.fakes import FakeEmbedder
-from tests.fixtures import OVERVIEW, PAGES, STRINGR
-
-
-def manifest(*installations: Installation, library: str = "user") -> dict:
-    """The body of POST /sync: what the R client lists for one library."""
-    return {
-        "library": library,
-        "packages": [{"package": i.package, "version": i.version, "built": i.built} for i in installations],
-    }
-
-
-def send_package(client: TestClient, inst: Installation = STRINGR, pages: list[dict] = PAGES) -> dict:
-    """What the R client does for one package the plan asked for. Returns the commit answer."""
-    installation = inst.model_dump()
-    response = client.post("/packages/begin", json={"installation": installation} | OVERVIEW)
-    response.raise_for_status()
-    batch_size = client.post("/sync", json=manifest(inst, library=inst.library)).json()["batch_size"]
-    for start in range(0, len(pages), batch_size):
-        batch = pages[start : start + batch_size]
-        client.post("/packages/pages", json={"installation": installation, "pages": batch}).raise_for_status()
-    response = client.post("/packages/commit", json={"installation": installation})
-    response.raise_for_status()
-    return response.json()
+from tests.fixtures import PAGES, STRINGR, manifest, send_package
 
 
 class UnavailableEmbedder(FakeEmbedder):
@@ -56,8 +34,21 @@ class ApiTest(unittest.TestCase):
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.json(), {"status": "ok", "collection": "r_docs", "index_format": self.indexer.index_format}
+            response.json(),
+            {"status": "ok", "collection": "r_docs", "index_format": self.indexer.index_format, "services": []},
         )
+
+    def test_a_dependency_down_is_degraded_with_the_reason(self):
+        services = [
+            ServiceStatus(name="qdrant", ok=True, detail="collection 'r_docs': 0 active chunks"),
+            ServiceStatus(name="ollama", ok=False, detail="models not pulled: nomic-embed-text. Try: make up"),
+        ]
+        client = TestClient(create_app(self.indexer, "r_docs", lambda: services))
+
+        answer = client.get("/health").json()
+
+        self.assertEqual(answer["status"], "degraded")
+        self.assertIn("Try: make up", answer["services"][1]["detail"])
 
     def test_a_new_package_is_planned_sent_and_searchable(self):
         plan = self.client.post("/sync", json=manifest(STRINGR)).json()

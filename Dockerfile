@@ -1,5 +1,5 @@
 # Image of the `rag` service (docker-compose.yml): the Python package with its HTTP API.
-# Built by `make up`; the R client's image is separate (src/extraction/Dockerfile).
+# Built by `make up`; the R client's image is separate (src/client/Dockerfile).
 FROM python:3.14-slim
 
 # uv, pinned to the version used in development, installs from uv.lock exactly.
