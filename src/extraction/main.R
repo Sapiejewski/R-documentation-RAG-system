@@ -3,7 +3,7 @@
 #
 #   Rscript main.R sync              # make sync:   extract new/changed packages of every
 #                                    #              library mounted under /libraries
-#   Rscript main.R install <pkg>...  # make ingest: install into the Docker-only library
+#   Rscript main.R install <pkg>...  # make install: install into the Docker-only library
 #
 # Libraries are mounted by docker-compose.yml: /libraries/system and /libraries/user
 # (host folders, read-only) and /libraries/docker (volume, for experiments).

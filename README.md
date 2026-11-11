@@ -14,7 +14,7 @@ na pytania z użyciem lokalnego modelu językowego. Projekt magisterski — cel 
 cp .env.example .env     # opcjonalnie: modele, porty
 make up                  # Qdrant + Ollama na CPU (z kartą NVIDIA: make up-gpu)
 make check               # czy wszystko działa
-make ingest PKG=stringr  # pobranie i zindeksowanie dokumentacji pakietu
+make sync                # zindeksowanie bibliotek R z .env (M1, w budowie)
 make search q="pad a string with zeros"
 make evaluate PKG=stringr
 ```
@@ -24,7 +24,7 @@ make evaluate PKG=stringr
 ## Rozwój
 
 ```bash
-make test     # testy, bez Dockera
+make test     # testy; część startuje testowego Qdranta w Dockerze (bez Dockera: pomijane)
 make lint     # ruff
 make format   # automatyczne poprawki
 ```

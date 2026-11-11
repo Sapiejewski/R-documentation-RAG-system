@@ -8,12 +8,26 @@ przez porty na `127.0.0.1`.
 | `qdrant` | `qdrant/qdrant` | 6333 | baza wektorowa (wolumen `qdrant_data`) |
 | `ollama` | `ollama/ollama` | 11434 | modele: embeddingi i generacja (wolumen `ollama_data`) |
 | `ollama-init` | `ollama/ollama` | — | jednorazowo pobiera modele z `.env` (`make up` / `make up-gpu`) |
-| `r-extract` | `rocker/r-ver` | — | ekstrakcja stron pomocy (`make extract`); pakiety R w wolumenie `r_lib` |
+| `r-extract` | `src/extraction/Dockerfile` (`rocker/r-ver`) | — | klient R: manifest i strony pomocy bibliotek z `.env` (`make sync`); `make install` instaluje do wolumenu `r_docker_lib` |
 
 ## Konfiguracja
 
-`cp .env.example .env` i edycja. Wszystkie zmienne są opcjonalne i opisane w `.env.example`.
-Docker Compose i kod Pythona (`rag/config.py`) czytają `.env` same — Makefile go nie potrzebuje.
+`cp .env.example .env` i edycja. Zmienne są opisane w `.env.example`; wymagana jest tylko
+`R_USER_LIBRARY` (dla `make sync`). Docker Compose i kod Pythona (`rag/config.py`) czytają `.env`
+same — Makefile go nie potrzebuje.
+
+## Biblioteki R (`make sync`)
+
+| Zmienna | Montowana jako | Domyślnie |
+|---|---|---|
+| `R_SYSTEM_LIBRARY` | `/libraries/system` (tylko odczyt) | `/usr/lib/R/library` (base R na Debianie/Ubuntu) |
+| `R_USER_LIBRARY` | `/libraries/user` (tylko odczyt) | brak — w R: `Sys.getenv("R_LIBS_USER")` |
+| — | `/libraries/docker` (wolumen `r_docker_lib`) | biblioteka eksperymentów (`make install`) |
+| `HOST_UID`, `HOST_GID` | użytkownik kontenera | `1000` — pliki w `data/` należą do ciebie, nie do roota |
+
+Oba foldery muszą istnieć (`create_host_path: false`): zła ścieżka to czytelny błąd zamiast
+pustego folderu roota, w którym R nie mógłby potem instalować. Bibliotekę użytkownika R tworzy
+przy pierwszym `install.packages()`; można też `mkdir -p` wcześniej.
 
 ## CPU czy GPU
 

@@ -1,6 +1,7 @@
 """Command line interface:  python -m rag <command> ..."""
 
 import argparse
+import logging
 import sys
 import time
 from pathlib import Path
@@ -143,10 +144,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def configure_logging(level: str) -> None:
+    """Logs go to stderr, so they never mix with the command's own output on stdout."""
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+        stream=sys.stderr,
+        force=True,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        return args.run(args, Settings.from_env())
+        settings = Settings.from_env()
+        configure_logging(settings.log_level)
+        return args.run(args, settings)
     except (ServiceError, FileNotFoundError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

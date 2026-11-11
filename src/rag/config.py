@@ -25,9 +25,9 @@ class Settings:
     embedding_model: str
     llm_model: str
     collection: str
-    data_dir: Path
     doc_prefix: str
     query_prefix: str
+    log_level: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -43,7 +43,7 @@ class Settings:
             embedding_model=model,
             llm_model=env.get("LLM_MODEL", "qwen3:1.7b"),
             collection=env.get("QDRANT_COLLECTION", "r_docs"),
-            data_dir=Path(env.get("RAG_DATA_DIR", "data")),
             doc_prefix=env.get("EMBEDDING_DOC_PREFIX", "search_document: " if is_nomic else ""),
             query_prefix=env.get("EMBEDDING_QUERY_PREFIX", "search_query: " if is_nomic else ""),
+            log_level=env.get("LOG_LEVEL", "INFO").upper(),
         )

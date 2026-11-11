@@ -3,6 +3,21 @@
 Krótko: co, dlaczego, jakie alternatywy. Najnowsze na górze. Przyda się przy pisaniu
 rozdziału o implementacji.
 
+## 2026-11 — Indeksowanie przyrostowe: generacje, aktywacja przy `commit`
+
+- Każda wersja pakietu to osobna *generacja* punktów (`generation` = hash z `built` + `index_format`;
+  id punktu z biblioteki, generacji i klucza chunka). Nowa generacja jest zapisywana jako `active: false`.
+- `commit`: najpierw aktywacja nowej generacji, potem usunięcie starej — wyszukiwanie widzi przez chwilę
+  obie, nigdy żadnej. Wyszukiwanie filtruje `active: true`, więc nie miesza dwóch wersji.
+- Przerwany transfer: stara generacja zostaje aktywna, rejestr wciąż ją wskazuje, więc następny `plan`
+  poprosi o pakiet ponownie; `begin` usuwa nieaktywne resztki. Ponowiona paczka niczego nie psuje
+  (te same id, wektory z hashy).
+- Odrzucone: aktualizacja „w miejscu” (te same id dla nowej wersji) — w trakcie transferu i po przerwaniu
+  indeks mieszałby strony dwóch wersji.
+- Indeksy pól w Qdrancie tylko dla filtrowanych pól (`library`, `package`, `generation`, `content_hash`,
+  `aliases`, `active`): każdy kosztuje ok. 0,5 s przy tworzeniu kolekcji. `wait=false` nie pomaga —
+  przenosi koszt na pierwszy zapis (zmierzone: 4 s).
+
 ## 2026-11 — Pydantic dla danych na granicach (`rag/schemas.py`)
 
 Modele, które przekraczają granicę systemu — manifest od klienta R (`Installation`), wpis rejestru
@@ -65,10 +80,16 @@ Zależności: **FastAPI** (async, walidacja danych wejściowych, dokumentacja AP
   Wektor jest deterministyczną funkcją wejścia, więc hashujemy wejście.
 - **Poziom pakietu:** manifest `(pakiet, Version, Built)` z `DESCRIPTION`. `Built` zmienia się przy
   każdej reinstalacji (też tej samej wersji, np. z GitHuba). Niezmienione pakiety pomijane w całości.
-- **Poziom chunka:** `content_hash = sha256(tekst + model embeddingów + wersja chunkera)` w payloadzie.
-  Embedding tylko dla nowych hashy. Zmiana modelu lub chunkera sama wymusza pełne przeliczenie.
-- **Stan indeksu w Qdrancie** (payload: `package`, `version`, `library`, `content_hash`), nie w pliku —
-  jedno źródło prawdy, nie może się rozjechać z indeksem.
+- **Poziom chunka:** `content_hash = sha256(tożsamość embeddera + tekst)` w payloadzie (tożsamość =
+  model + prefiks dokumentu: wszystko, od czego zależy wektor). Przed embeddingiem szukamy w Qdrancie
+  punktu o tym samym hashu i kopiujemy jego wektor — embedding tylko dla nowych tekstów.
+- **Wersja chunkera nie należy do hasha**, tylko do rejestru (`index_format` = wersja chunkera +
+  tożsamość embeddera + `max_chars`). Wektor zależy wyłącznie od tekstu i modelu; ale po zmianie
+  chunkera niezmieniona instalacja nie zostałaby wysłana — dlatego zmiana `index_format` wymusza
+  ponowne wysłanie pakietu, a hashe sprawiają, że embedding obejmie tylko chunki o zmienionym tekście.
+- **Stan indeksu w Qdrancie**, nie w pliku: osobna kolekcja bez wektorów `<kolekcja>_packages`, jeden
+  punkt na (biblioteka, pakiet) z instalacją i `index_format` — jedno źródło prawdy, nie rozjedzie
+  się z indeksem. (Qdrant obsługuje kolekcje bez wektorów — sprawdzone na v1.19.1.)
 - Jedna kolekcja dla wszystkich bibliotek, rozróżnianych polem `library` (decyzja do potwierdzenia przy `renv`).
 
 ## 2026-11 — Python docelowo tylko w Dockerze; na hoście tylko R

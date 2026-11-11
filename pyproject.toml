@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 # Add a dependency only when it gives something real (e.g. BM25, a tokenizer, a web
 # framework), not a thin wrapper over what the standard library already does.
-# Each one gets a line in docs/decisions.md. So far none was needed.
+# Each one gets a line in docs/decisions.md (pydantic: validated data at the boundaries).
 dependencies = [
     "pydantic>=2.14.2",
 ]

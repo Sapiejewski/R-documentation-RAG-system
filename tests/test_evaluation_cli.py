@@ -99,5 +99,22 @@ class CliTest(unittest.TestCase):
         self.assertIn("make up", err.getvalue())
 
 
+class LoggingTest(unittest.TestCase):
+    def test_indexer_logs_reach_stderr_at_the_configured_level(self):
+        from rag.cli import configure_logging
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            configure_logging("INFO")
+            sync_package(Indexer(store=MemoryStore(), registry=MemoryRegistry(), embedder=FakeEmbedder()))
+        self.assertIn("committed user/stringr 1.5.1", err.getvalue())
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            configure_logging("WARNING")
+            sync_package(Indexer(store=MemoryStore(), registry=MemoryRegistry(), embedder=FakeEmbedder()))
+        self.assertEqual(err.getvalue(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2,7 +2,8 @@
 #
 #   make up        Qdrant + Ollama on CPU
 #   make up-gpu    the same, with Ollama on an NVIDIA GPU (adds docker-compose.gpu.yml)
-#   make extract   one-off R container that extracts a package's help pages
+#   make install   one-off R container: install a package into the Docker-only library
+#   make sync      one-off R container: read the help pages of the mounted R libraries
 #
 # Ports are published on 127.0.0.1 only. Settings (models, ports) come from .env,
 # falling back to the defaults after ":-" below; see .env.example.
@@ -47,7 +48,7 @@ services:
     restart: "no"
 
   # One-off: reads the help pages of the R libraries below and writes
-  # data/extracted/<library>/<package>.jsonl (make sync / make ingest).
+  # data/extracted/<library>/<package>.jsonl (make sync / make install).
   # Profile "tools" keeps it out of `up`.
   r-extract:
     build:
@@ -76,7 +77,7 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      # Docker-only library for reproducible experiments (make ingest PKG=...).
+      # Docker-only library for reproducible experiments (make install PKG=...).
       - r_docker_lib:/libraries/docker
     entrypoint: ["Rscript", "/work/extraction/main.R"]
 

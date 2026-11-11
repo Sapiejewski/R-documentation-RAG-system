@@ -28,13 +28,15 @@ Od razu docelowy protokół (bez plików pośrednich): cienki klient R wysyła t
 - [x] Ekstrakcja bez instalowania pakietów (tylko odczyt plików); tryb `install` dla eksperymentów
 - [x] Manifest biblioteki: `(pakiet, Version, Built)` z plików `DESCRIPTION` — porównanie bez zmian: 50 s → 1,2 s
 - [ ] Usługa `rag` w Dockerze z HTTP API (FastAPI): `POST /sync` (manifest → plan), paczki stron, `commit`
-- [ ] Stan indeksu w Qdrancie: `package`, `version`, `built`, `library`, `content_hash` w payloadzie
-- [ ] Hash treści chunka (`sha256(tekst + model embeddingów + wersja chunkera)`): embedding tylko dla zmienionych chunków
-- [ ] Spójność per pakiet: stara wersja aktualna do `commit`; przerwany transfer = ponowna prośba przy następnym syncu
+- [x] Stan indeksu w Qdrancie: rejestr pakietów (kolekcja bez wektorów) + `library`, `built`, `generation`, `content_hash`, `active` w payloadzie chunków
+- [x] Hash treści chunka (`sha256(tożsamość embeddera + tekst)`): embedding tylko dla nowych tekstów, wektory reszty kopiowane z Qdranta
+- [x] Spójność per pakiet (logika `Indexer` + testy): stara wersja aktywna do `commit`; przerwany transfer = ponowna prośba przy następnym syncu
 - [ ] Cienki klient R (httr2): manifest → `/sync` → wysyłka paczek stron → `commit`; uruchamiany w `r-extract`
-- [ ] Logowanie (`logging`) po stronie serwisu: co sync wykrył i zrobił, ile trwało
+- [x] Logowanie (`logging`, poziom z `LOG_LEVEL`): `Indexer` loguje plan i commit
+- [ ] Logowanie każdego żądania API: co przyszło, co zrobiono, ile trwało
 - [ ] Iteracyjnie: base R, potem data.table, stringr, dplyr (po jednym), usunięcie i reinstalacja pakietu
-- [ ] Testy z prawdziwym Qdrantem przez testcontainers; testy klienta R (testthat)
+- [x] Testy z prawdziwym Qdrantem przez testcontainers (zamiast fałszywego serwera HTTP)
+- [ ] Testy klienta R (testthat)
 
 **Zysk:** czas synchronizacji: pełne przeindeksowanie vs poziom pakietu vs poziom pakietu + chunków;
 gdzie jest wąskie gardło (ekstrakcja w R, transport, embedding).

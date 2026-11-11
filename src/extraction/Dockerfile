@@ -3,7 +3,7 @@
 FROM rocker/r-ver:4.5.1
 
 # The only R package the extraction scripts need. rocker images install from a dated
-# CRAN snapshot, so this (and `make ingest`) gives the same versions on every build.
+# CRAN snapshot, so this (and `make install`) gives the same versions on every build.
 RUN install2.r --error jsonlite
 
 # Docker-only library for experiments (volume r_docker_lib). Owned by the host user the
