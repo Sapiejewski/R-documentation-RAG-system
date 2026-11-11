@@ -8,10 +8,11 @@ from pathlib import Path
 
 from rag.config import Settings
 from rag.evaluation.retrieval import evaluate, load_cases
+from rag.ingestion.indexing import Indexer
 from rag.retrieval.search import format_hit, search
 from rag.services.http import ServiceError
 from rag.services.ollama import OllamaEmbedder, OllamaLLM
-from rag.services.qdrant import QdrantStore
+from rag.services.qdrant import QdrantPackageRegistry, QdrantStore
 
 
 def _embedder(settings: Settings) -> OllamaEmbedder:
@@ -25,6 +26,23 @@ def _embedder(settings: Settings) -> OllamaEmbedder:
 
 def _store(settings: Settings) -> QdrantStore:
     return QdrantStore(settings.qdrant_url, settings.collection, settings.qdrant_api_key)
+
+
+def _indexer(settings: Settings) -> Indexer:
+    registry = QdrantPackageRegistry(settings.qdrant_url, settings.collection, settings.qdrant_api_key)
+    return Indexer(store=_store(settings), registry=registry, embedder=_embedder(settings))
+
+
+def cmd_serve(args, settings: Settings) -> int:
+    """Run the HTTP API (rag/api) until stopped. In Docker this is the `rag` service."""
+    import uvicorn  # only this command needs the web server
+
+    from rag.api.app import create_app
+
+    app = create_app(_indexer(settings), settings.collection)
+    # log_config=None: keep our logging setup; access_log=False: the app logs each request itself.
+    uvicorn.run(app, host=args.host, port=args.port, log_config=None, access_log=False)
+    return 0
 
 
 def cmd_search(args, settings: Settings) -> int:
@@ -116,6 +134,11 @@ def cmd_check(args, settings: Settings) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m rag", description="RAG over R package documentation.")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    p = commands.add_parser("serve", help="run the HTTP API the R client syncs through")
+    p.add_argument("--host", default="127.0.0.1", help="0.0.0.0 inside Docker")
+    p.add_argument("--port", type=int, default=8000)
+    p.set_defaults(run=cmd_serve)
 
     p = commands.add_parser("search", help="retrieve the chunks closest to a question")
     p.add_argument("query")

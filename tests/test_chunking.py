@@ -3,7 +3,8 @@ import unittest
 from rag.ingestion.chunking import chunk_description, chunk_topic, split_text
 from tests.fixtures import OVERVIEW, PAGES
 
-STR_PAD, STR_TRIM, STR_DETECT = PAGES
+# chunk_topic gets each page with its package and version, as Indexer.add_pages passes it.
+STR_PAD, STR_TRIM, STR_DETECT = ({"package": "stringr", "version": "1.5.1"} | page for page in PAGES)
 DESCRIPTION = {"package": "stringr", "version": "1.5.1"} | OVERVIEW
 HEADER = "stringr::str_pad - Pad a string to minimum width"
 

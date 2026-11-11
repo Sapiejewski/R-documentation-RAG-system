@@ -4,11 +4,13 @@ version = "0.1.0"
 description = "Local RAG assistant over the documentation of R and R packages."
 readme = "README.md"
 requires-python = ">=3.14"
-# Add a dependency only when it gives something real (e.g. BM25, a tokenizer, a web
-# framework), not a thin wrapper over what the standard library already does.
-# Each one gets a line in docs/decisions.md (pydantic: validated data at the boundaries).
+# Use a library when it is an industry standard or clearly makes the job easier or faster
+# (pydantic, FastAPI, numpy, ...); skip only thin wrappers that add nothing over the standard
+# library. Each one gets a line in docs/decisions.md.
 dependencies = [
+    "fastapi>=0.162.4",
     "pydantic>=2.14.2",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
@@ -23,6 +25,7 @@ module-name = "rag"
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.16.0",
     "pytest>=9.2.0",
     "ruff>=0.16.10",
     "testcontainers>=4.15.0",

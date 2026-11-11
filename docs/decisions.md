@@ -3,6 +3,34 @@
 Krótko: co, dlaczego, jakie alternatywy. Najnowsze na górze. Przyda się przy pisaniu
 rozdziału o implementacji.
 
+## 2026-11 — HTTP API synchronizacji (`rag/api/`)
+
+- Endpointy odpowiadają krokom `Indexer`: `POST /sync`, `/packages/begin`, `/packages/pages`,
+  `/packages/commit`, plus `GET /health` (zwraca też `index_format` — klient widzi, że zmiana
+  modelu wymusi pełne przeindeksowanie). Ciało żądania to modele z `rag/schemas.py`; każdy
+  krok pakietu niesie całą `installation`, więc serwer nie trzyma stanu sesji między żądaniami.
+- Handlery to zwykłe `def`: indeksowanie blokuje na HTTP do Ollamy/Qdranta, FastAPI uruchamia je
+  w wątkach. Odpowiedź dopiero po zapisie = backpressure bez kolejki zadań.
+- Błędy: 422 z nazwą pola (walidacja pydantic, `extra="forbid"` łapie literówki klienta),
+  503 gdy Ollama/Qdrant nie działa (klient może ponowić — paczki są idempotentne),
+  limit 500 stron na żądanie.
+- Logowanie: middleware loguje każde żądanie (metoda, ścieżka, status, czas); `/health` tylko na
+  DEBUG, bo healthcheck odpytuje co 5 s. Szczegóły pracy (plan, commit, paczki) loguje `Indexer`.
+- Uruchamianie: `rag serve` (uvicorn), w Dockerze usługa `rag` z `Dockerfile` w katalogu głównym
+  (kontekst budowania musi obejmować `pyproject.toml` i `uv.lock`).
+- Zależności: **FastAPI** + **uvicorn** (standard; walidacja i `/docs` za darmo), w testach
+  `TestClient` z **httpx2** (zalecany przez Starlette następca `httpx`).
+- Odrzucone: serwer na `http.server` ze standardowej biblioteki — walidacja, kody błędów
+  i dokumentacja API do napisania ręcznie, czyli dokładnie to, co FastAPI robi dobrze.
+
+## 2026-11 — Zależności: standard rynkowy albo realny zysk (zastępuje wpis z 2026-10)
+
+Zewnętrzną bibliotekę bierzemy, gdy jest **standardem rynkowym** albo **znacząco ułatwia zadanie
+lub poprawia wydajność** (pydantic, FastAPI, ORM, numpy, BM25…). Nie odtwarzamy ręcznie tego, co
+dojrzała biblioteka robi dobrze — kod ma być zrozumiały dla innych, a standard jest zrozumiały
+z definicji. Unikamy tylko cienkich nakładek bez wartości dodanej: klienci HTTP do Ollamy i Qdranta
+zostają na `urllib` (kilka endpointów JSON, łatwa podmiana w testach).
+
 ## 2026-11 — Indeksowanie przyrostowe: generacje, aktywacja przy `commit`
 
 - Każda wersja pakietu to osobna *generacja* punktów (`generation` = hash z `built` + `index_format`;
@@ -144,7 +172,7 @@ Teraz wybór jest jawny: `up-gpu` dokłada `docker-compose.gpu.yml` (rezerwacja 
 Plik GPU jest osobny, bo na maszynie bez NVIDIA ta rezerwacja wywraca `docker compose up`.
 `scripts/smoke.sh` (parsowanie JSON w awk) zastąpione `rag check` w Pythonie.
 
-## 2026-10 — Zależności tylko, gdy wnoszą coś realnego
+## 2026-10 — Zależności tylko, gdy wnoszą coś realnego (zastąpione, zob. wyżej)
 
 HTTP do Ollamy i Qdranta przez `urllib` (`rag/services/http.py`), bez `httpx`/`requests`/`qdrant-client`.
 Używamy kilku prostych endpointów JSON, więc biblioteka byłaby tylko nakładką: własny cienki

@@ -27,13 +27,13 @@ Od razu docelowy protokół (bez plików pośrednich): cienki klient R wysyła t
 - [x] Wybór bibliotek w `.env` (`R_SYSTEM_LIBRARY`, `R_USER_LIBRARY`), bind mount tylko do odczytu (przejściowo)
 - [x] Ekstrakcja bez instalowania pakietów (tylko odczyt plików); tryb `install` dla eksperymentów
 - [x] Manifest biblioteki: `(pakiet, Version, Built)` z plików `DESCRIPTION` — porównanie bez zmian: 50 s → 1,2 s
-- [ ] Usługa `rag` w Dockerze z HTTP API (FastAPI): `POST /sync` (manifest → plan), paczki stron, `commit`
+- [x] Usługa `rag` w Dockerze z HTTP API (FastAPI): `POST /sync` (manifest → plan), `begin`, paczki stron, `commit`, `GET /health`; schematy i dokumentacja pod `/docs`
 - [x] Stan indeksu w Qdrancie: rejestr pakietów (kolekcja bez wektorów) + `library`, `built`, `generation`, `content_hash`, `active` w payloadzie chunków
 - [x] Hash treści chunka (`sha256(tożsamość embeddera + tekst)`): embedding tylko dla nowych tekstów, wektory reszty kopiowane z Qdranta
 - [x] Spójność per pakiet (logika `Indexer` + testy): stara wersja aktywna do `commit`; przerwany transfer = ponowna prośba przy następnym syncu
 - [ ] Cienki klient R (httr2): manifest → `/sync` → wysyłka paczek stron → `commit`; uruchamiany w `r-extract`
 - [x] Logowanie (`logging`, poziom z `LOG_LEVEL`): `Indexer` loguje plan i commit
-- [ ] Logowanie każdego żądania API: co przyszło, co zrobiono, ile trwało
+- [x] Logowanie każdego żądania API: metoda, ścieżka, status, czas (`make logs`); błędy walidacji jako WARNING, niedostępna Ollama/Qdrant jako 503 + ERROR
 - [ ] Iteracyjnie: base R, potem data.table, stringr, dplyr (po jednym), usunięcie i reinstalacja pakietu
 - [x] Testy z prawdziwym Qdrantem przez testcontainers (zamiast fałszywego serwera HTTP)
 - [ ] Testy klienta R (testthat)

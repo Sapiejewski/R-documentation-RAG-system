@@ -1,6 +1,6 @@
 # Local services for the RAG system. Usually driven by the Makefile:
 #
-#   make up        Qdrant + Ollama on CPU
+#   make up        Qdrant + Ollama (CPU) + the rag API
 #   make up-gpu    the same, with Ollama on an NVIDIA GPU (adds docker-compose.gpu.yml)
 #   make install   one-off R container: install a package into the Docker-only library
 #   make sync      one-off R container: read the help pages of the mounted R libraries
@@ -29,6 +29,32 @@ services:
       - ollama_data:/root/.ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # The Python service: the HTTP API the R client syncs its libraries through (src/rag/api).
+  # Endpoints and their schemas: http://localhost:8000/docs
+  rag:
+    build: .
+    ports:
+      - "127.0.0.1:${RAG_HOST_PORT:-8000}:8000"
+    # Same settings as on the host (models, collection, LOG_LEVEL); .env is optional.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Inside Docker the other services are reached by name, not through localhost.
+      OLLAMA_URL: http://ollama:11434
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 5s
       timeout: 5s
       retries: 20

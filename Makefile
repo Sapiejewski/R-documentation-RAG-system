@@ -5,24 +5,28 @@
 
 PKG ?= stringr
 
-.PHONY: help up up-gpu down check install search evaluate test lint format
+.PHONY: help up up-gpu down logs check install search evaluate test lint format
 
 help: ## list the targets
 	@grep -E '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
 
 # --- services (Docker) ------------------------------------------------------------
-# Both start Qdrant and Ollama, wait until they are healthy, then download the models.
-# up-gpu only adds docker-compose.gpu.yml, which gives Ollama the NVIDIA GPU.
+# Both start Qdrant, Ollama and the rag API (rebuilt if the code changed), wait until they
+# are healthy, then download the models. up-gpu only adds docker-compose.gpu.yml, which
+# gives Ollama the NVIDIA GPU.
 up: ## start the services, Ollama on CPU
-	docker compose up -d --wait qdrant ollama
+	docker compose up -d --wait --build qdrant ollama rag
 	docker compose run --rm ollama-init
 
 up-gpu: ## start the services, Ollama on an NVIDIA GPU
-	docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --wait qdrant ollama
+	docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --wait --build qdrant ollama rag
 	docker compose run --rm ollama-init
 
 down: ## stop the services (data is kept)
 	docker compose down
+
+logs: ## follow the rag API log (one line per request)
+	docker compose logs -f rag
 
 check: ## one real embedding + generation: does the stack work, how fast
 	uv run rag check

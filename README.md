@@ -12,8 +12,9 @@ na pytania z użyciem lokalnego modelu językowego. Projekt magisterski — cel 
 
 ```bash
 cp .env.example .env     # opcjonalnie: modele, porty
-make up                  # Qdrant + Ollama na CPU (z kartą NVIDIA: make up-gpu)
+make up                  # Qdrant + Ollama (CPU) + API rag; z kartą NVIDIA: make up-gpu
 make check               # czy wszystko działa
+make logs                # log API; endpointy: http://localhost:8000/docs
 make sync                # zindeksowanie bibliotek R z .env (M1, w budowie)
 make search q="pad a string with zeros"
 make evaluate PKG=stringr

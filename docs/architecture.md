@@ -27,9 +27,11 @@ wykrywa zmianę biblioteki → ekstrakcja tylko zmienionych pakietów → wysła
 
 ## Obecnie (development)
 
-- Python działa na hoście przez `uv` (wygodny development). **Do usunięcia** w kolejnych etapach
-  roadmapy — docelowo Python tylko w Dockerze.
-- Klient R (M1) działa w kontenerze `r-extract` i rozmawia z serwisem przez ten sam HTTP API co docelowo.
+- Serwis `rag` (HTTP API, `src/rag/api/`) działa już w Dockerze (`make up`). Komendy `rag search`,
+  `evaluate`, `check` i testy działają jeszcze na hoście przez `uv` (wygodny development) —
+  **do przeniesienia** w kolejnych etapach roadmapy; docelowo Python tylko w Dockerze.
+- Klient R (M1) działa w kontenerze `r-extract` i rozmawia z serwisem przez ten sam HTTP API co docelowo
+  (w budowie: na razie zapisuje jeszcze pliki `data/extracted/`).
 - Biblioteki hosta (od M1): **bind mount tylko do odczytu** do kontenera `r-extract`.
   To **rozwiązanie przejściowe**: folder jest ustalany przy starcie compose i nie da się go zmienić
   dynamicznie, a kontener nie wie, kiedy użytkownik coś zainstalował.

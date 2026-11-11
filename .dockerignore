@@ -1,0 +1,8 @@
+# Build context of the root Dockerfile: only what the image needs. Listing what to include
+# (instead of what to exclude) guarantees .env, data/ and .venv never end up in the image.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/rag
+src/rag/**/__pycache__

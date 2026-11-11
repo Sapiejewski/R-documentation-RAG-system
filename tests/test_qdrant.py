@@ -10,6 +10,9 @@ import os
 import unittest
 from unittest import mock
 
+from fastapi.testclient import TestClient
+
+from rag.api.app import create_app
 from rag.cli import main
 from rag.ingestion.indexing import Indexer
 from rag.retrieval.search import search
@@ -20,6 +23,7 @@ from rag.services.qdrant import QdrantPackageRegistry, QdrantStore
 from tests.fakes import DIM, FakeEmbedder, FakeOllama, embed_text
 from tests.fixtures import OVERVIEW, PAGES, STRINGR, sync_package
 from tests.qdrant import empty, fresh_collection, qdrant_url, shared_collection
+from tests.test_api import manifest, send_package
 
 
 class QdrantTestCase(unittest.TestCase):
@@ -138,6 +142,24 @@ class CliOverQdrantTest(QdrantTestCase):
         self.assertIn("stringr::str_trim", out)
         self.assertEqual(self.run_cli("inspect", "stringr", "nope")[0], 1)
         self.assertIn("active chunks", self.run_cli("stats", "--package", "stringr")[1])
+
+
+class ApiOnQdrantTest(QdrantTestCase):
+    """The R client's whole conversation with the API, stored in a real Qdrant."""
+
+    def test_sync_through_the_api(self):
+        embedder = FakeEmbedder()
+        indexer = Indexer(store=self.store, registry=self.registry, embedder=embedder, batch_size=2)
+        client = TestClient(create_app(indexer, self.collection))
+
+        self.assertEqual(client.post("/sync", json=manifest(STRINGR)).json()["send"], ["stringr"])
+        committed = send_package(client)
+        plan = client.post("/sync", json=manifest(STRINGR)).json()
+
+        self.assertEqual((plan["send"], plan["unchanged"]), ([], 1))
+        self.assertEqual(self.store.count({"active": True}), committed["chunks"])
+        hits = search("pad a string with zeros", embedder=embedder, store=self.store, k=1)
+        self.assertEqual(hits[0].payload["topic"], "str_pad")
 
 
 if __name__ == "__main__":

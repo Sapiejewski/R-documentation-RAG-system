@@ -1,5 +1,5 @@
 """Sample data as the R client sends it: an installation, its overview and help pages
-(rendered the way tools::Rd2txt renders them)."""
+(rendered the way tools::Rd2txt renders them; shaped like rag.schemas.HelpPage)."""
 
 from rag.schemas import Installation
 
@@ -136,8 +136,6 @@ OVERVIEW = {
 
 PAGES = [
     {
-        "package": "stringr",
-        "version": "1.5.1",
         "name": "str_pad",
         "title": "Pad a string to minimum width",
         "aliases": ["str_pad"],
@@ -145,8 +143,6 @@ PAGES = [
         "text": STR_PAD_TEXT,
     },
     {
-        "package": "stringr",
-        "version": "1.5.1",
         "name": "str_trim",
         "title": "Trim whitespace from a string",
         "aliases": ["str_trim", "str_squish"],
@@ -154,8 +150,6 @@ PAGES = [
         "text": STR_TRIM_TEXT,
     },
     {
-        "package": "stringr",
-        "version": "1.5.1",
         "name": "str_detect",
         "title": "Detect the presence or absence of a pattern in a string",
         "aliases": "str_detect",  # jsonlite writes a single alias as a bare string
