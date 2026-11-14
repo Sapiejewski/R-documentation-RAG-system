@@ -1,15 +1,16 @@
 """Qdrant vector database over its REST API.
 
-Two collections: `<name>` holds the chunks with their vectors (`QdrantStore`, a `VectorStore`);
-`<name>_packages` holds one point per indexed package and no vectors (`QdrantPackageRegistry`).
-Keeping both in Qdrant means the record of what is indexed cannot drift from the index itself.
+`<name>` holds the chunks with their vectors (`QdrantStore`, a `VectorStore`). The registry
+(`QdrantPackageRegistry`) has two small collections without vectors: `<name>_packages`, one point
+per indexed package, and `<name>_libraries`, one point per known library. Keeping all of it in
+Qdrant means the record of what is indexed cannot drift from the index itself.
 """
 
 import uuid
 from collections.abc import Sequence
 
 from rag.retrieval.vector_store import Hit, Point, Where
-from rag.schemas import IndexedPackage, Installation
+from rag.schemas import IndexedPackage, Installation, KnownLibrary
 from rag.services.http import ServiceError, request_json
 
 _BATCH = 64
@@ -112,10 +113,12 @@ class QdrantStore(_Collection):
 
 
 class QdrantPackageRegistry(_Collection):
-    """One vectorless point per indexed package: which installation it is and how it was indexed."""
+    """One vectorless point per indexed package (which installation, how it was indexed), and one
+    per known library (in `<name>_libraries`: a few points, read whole, so no payload index)."""
 
     def __init__(self, base_url: str, collection: str, api_key: str = "", timeout: float = 60.0):
         super().__init__(base_url, f"{collection}_packages", api_key, timeout)
+        self.known_libraries = _Collection(base_url, f"{collection}_libraries", api_key, timeout)
         self._ready = False
 
     def _ensure(self) -> None:
@@ -124,7 +127,24 @@ class QdrantPackageRegistry(_Collection):
         if not self.exists():
             self._call("PUT", "", {"vectors": {}})
             self._call("PUT", "/index?wait=true", {"field_name": "library", "field_schema": "keyword"})
+        if not self.known_libraries.exists():
+            self.known_libraries._call("PUT", "", {"vectors": {}})
         self._ready = True
+
+    def libraries(self) -> list[KnownLibrary]:
+        self._ensure()
+        points = self.known_libraries._scroll({"must": []})
+        return sorted((KnownLibrary.model_validate(p["payload"]) for p in points), key=lambda lib: lib.library)
+
+    def save_library(self, library: KnownLibrary) -> None:
+        self._ensure()
+        point = {"id": str(uuid.uuid5(_NAMESPACE, library.library)), "vector": {}, "payload": library.model_dump()}
+        self.known_libraries._call("PUT", "/points?wait=true", {"points": [point]})
+
+    def forget_library(self, library: str) -> None:
+        self._ensure()
+        self._call("POST", "/points/delete?wait=true", {"filter": _filter({"library": library})})
+        self.known_libraries._call("POST", "/points/delete?wait=true", {"filter": _filter({"library": library})})
 
     def indexed(self, library: str) -> dict[str, IndexedPackage]:
         self._ensure()

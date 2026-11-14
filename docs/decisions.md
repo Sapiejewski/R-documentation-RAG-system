@@ -3,6 +3,32 @@
 Krótko: co, dlaczego, jakie alternatywy. Najnowsze na górze. Przyda się przy pisaniu
 rozdziału o implementacji.
 
+## 2026-11 — `rag ask`: z RAG i bez RAG różnią się tylko promptem
+
+- Odpowiedź z RAG: pytanie + k najbliższych fragmentów dokumentacji **zainstalowanych wersji**
+  (z etykietą `[pakiet::temat] (pakiet wersja)`); model ma z nich korzystać i je cytować.
+  Bez RAG: samo pytanie. Ten sam model, ta sama temperatura, to samo pytanie — porównanie mierzy
+  dokładnie to, co dokłada dokumentacja (pytanie badawcze pracy).
+- Pusty wynik wyszukiwania to jawne „nie znaleziono dokumentacji”, a nie pusty kontekst — model
+  ma powiedzieć, że nie wie, zamiast zgadywać.
+- Bez pętli weryfikacji (M3): na demo wystarczy porównanie; weryfikacja to kolejny krok.
+- Przy okazji pierwszego prawdziwego syncu: strony pomocy wykonujące kod przy renderowaniu
+  (`\Sexpr`, np. `generics`) ładują własny pakiet, więc czytana biblioteka jest na czas odczytu
+  dokładana do `.libPaths()` — bez tego `generics` miał 0 stron.
+
+## 2026-11 — Znikające biblioteki: decyduje klient, tylko o swoich
+
+- Serwis pamięta znane biblioteki (kolekcja `<name>_libraries`: ścieżka + pochodzenie), klient
+  przed syncem sprawdza, czy ich foldery istnieją (`dir.exists`) — tylko on widzi swój dysk.
+- **Pochodzenie** (`host:<komputer>` / `docker`): klient ocenia tylko biblioteki, które sam
+  zaindeksował. Bez tego sync z hosta skasowałby bibliotekę Dockera (korpus ewaluacji), bo
+  `/libraries/docker` na hoście nie istnieje.
+- Usuwany jest tylko **zniknięty folder**. Biblioteka niewybrana, ale istniejąca zostaje (komunikat
+  z poleceniem `forget`): przy kilku projektach na jednym komputerze każdy widzi inne biblioteki,
+  więc „nie wybrana tutaj” nie znaczy „niepotrzebna”.
+- Odrzucone: klient podaje pełną listę bibliotek, serwis usuwa resztę (wariant A) — projekty
+  kasowałyby sobie nawzajem biblioteki.
+
 ## 2026-11 — Klient R na hoście, `init` / `doctor`, dwa tryby
 
 Problem: biblioteki R hosta były podłączane do kontenera bind mountem. Folder musiał istnieć

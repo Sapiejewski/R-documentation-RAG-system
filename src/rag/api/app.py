@@ -4,6 +4,8 @@
     POST /packages/begin    start sending one package (its overview)
     POST /packages/pages    one batch of its help pages
     POST /packages/commit   all sent: switch searches to the new version
+    GET  /libraries         every library in the index (path, origin, package count)
+    POST /libraries/forget  drop a library and all its packages (its folder is gone)
     GET  /health            the service is up; the index format; are Qdrant and Ollama ready
 
 Interactive documentation with every request and response schema: /docs.
@@ -30,7 +32,10 @@ from rag.schemas import (
     BeginRequest,
     CommitReport,
     CommitRequest,
+    ForgetReport,
+    ForgetRequest,
     Health,
+    Libraries,
     PagesRequest,
     ServiceStatus,
     StoreReport,
@@ -77,7 +82,7 @@ def create_app(indexer: Indexer, collection: str, service_status: Callable[[], l
 
     @app.post("/sync")
     def sync(request: SyncRequest) -> SyncPlan:
-        return indexer.plan(request.library, request.installations())
+        return indexer.plan(request.library, request.installations(), origin=request.origin)
 
     @app.post("/packages/begin")
     def begin(request: BeginRequest) -> StoreReport:
@@ -90,5 +95,13 @@ def create_app(indexer: Indexer, collection: str, service_status: Callable[[], l
     @app.post("/packages/commit")
     def commit(request: CommitRequest) -> CommitReport:
         return CommitReport(chunks=indexer.commit(request.installation))
+
+    @app.get("/libraries")
+    def libraries() -> Libraries:
+        return Libraries(libraries=indexer.libraries())
+
+    @app.post("/libraries/forget")
+    def forget(request: ForgetRequest) -> ForgetReport:
+        return ForgetReport(library=request.library, removed=indexer.forget(request.library))
 
     return app

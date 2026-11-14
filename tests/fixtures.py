@@ -159,10 +159,11 @@ PAGES = [
 ]
 
 
-def manifest(*installations: Installation, library: str = "user") -> dict:
+def manifest(*installations: Installation, library: str = "user", origin: str = "host:test") -> dict:
     """The body of POST /sync: what the R client lists for one library."""
     return {
         "library": library,
+        "origin": origin,
         "packages": [{"package": i.package, "version": i.version, "built": i.built} for i in installations],
     }
 

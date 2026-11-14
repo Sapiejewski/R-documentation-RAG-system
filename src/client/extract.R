@@ -50,6 +50,12 @@ render_help_page <- function(rd, pkg) {
 # Every help page of a package (skipping pages marked `internal`), as a list of
 # list(name, title, aliases, keywords, text) -- the HelpPage schema of the rag API.
 help_pages <- function(pkg, lib) {
+  # Some pages run R code while rendering (\Sexpr), which loads the package itself (e.g. generics
+  # lists its methods). R finds packages only on .libPaths(), so put this library first for now.
+  old_paths <- .libPaths()
+  .libPaths(c(lib, old_paths))
+  on.exit(.libPaths(old_paths))
+
   pages <- list()
   db <- tools::Rd_db(pkg, lib.loc = lib)
   for (file_name in names(db)) {

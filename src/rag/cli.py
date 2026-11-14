@@ -8,6 +8,7 @@ from pathlib import Path
 
 from rag.config import Settings
 from rag.evaluation.retrieval import evaluate, load_cases
+from rag.generation.answer import answer
 from rag.ingestion.indexing import Indexer
 from rag.retrieval.search import format_hit, search
 from rag.services.http import ServiceError
@@ -53,6 +54,28 @@ def cmd_search(args, settings: Settings) -> int:
         return 1
     for rank, hit in enumerate(hits, start=1):
         print(format_hit(rank, hit))
+    return 0
+
+
+def cmd_ask(args, settings: Settings) -> int:
+    """Answer a question with the local model; --no-rag: without the documentation, to compare."""
+    result = answer(
+        args.question,
+        llm=OllamaLLM(settings.ollama_url, settings.llm_model),
+        embedder=_embedder(settings),
+        store=_store(settings),
+        use_rag=not args.no_rag,
+        k=args.k,
+        package=args.package,
+    )
+    print(result.text)
+    print()
+    if result.used_rag:
+        print(f"Documentation given to the model: {', '.join(result.sources) or 'none found (try: make sync)'}")
+    else:
+        print("Without RAG: the model answered from what it knows by itself.")
+    g = result.generation
+    print(f"{settings.llm_model}: {g.tokens} tokens in {g.seconds:.1f}s; retrieval {result.retrieval_seconds:.2f}s")
     return 0
 
 
@@ -146,6 +169,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-k", type=int, default=5)
     p.add_argument("--package", help="restrict to one package")
     p.set_defaults(run=cmd_search)
+
+    p = commands.add_parser("ask", help="answer a question with the local model, from the documentation")
+    p.add_argument("question")
+    p.add_argument("--no-rag", action="store_true", help="without the documentation, to compare")
+    p.add_argument("-k", type=int, default=5, help="chunks of documentation given to the model")
+    p.add_argument("--package", help="only documentation of this package")
+    p.set_defaults(run=cmd_ask)
 
     p = commands.add_parser("evaluate", help="measure retrieval quality on a question set")
     p.add_argument("package")

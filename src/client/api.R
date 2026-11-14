@@ -7,6 +7,9 @@
 #   4. POST /packages/commit   done: switch searches to this version
 # A package that fails half-way is simply not committed: its previous version stays
 # searchable, and the service asks for it again on the next sync.
+#
+# Before that, libraries this client indexed earlier but whose folder is gone are dropped
+# (GET /libraries, POST /libraries/forget): see drop_missing_libraries().
 
 # A clear message instead of "there is no package called 'httr2'".
 require_httr2 <- function() {
@@ -62,7 +65,7 @@ send_package <- function(installation, lib, batch_size) {
 # then send what the service asks for. Returns the packages that failed.
 sync_library <- function(lib) {
   manifest <- library_manifest(lib)
-  plan <- api_post("/sync", list(library = lib, packages = manifest))
+  plan <- api_post("/sync", list(library = lib, origin = client_origin(), packages = manifest))
   message(sprintf("%s: %d packages | %d to send, %d unchanged, %d removed",
                   lib, nrow(manifest), length(plan$send), plan$unchanged, length(plan$removed)))
 
@@ -82,12 +85,39 @@ sync_library <- function(lib) {
   failed
 }
 
+# Drop one library and all its packages from the index; returns the dropped packages.
+forget_library <- function(lib) {
+  report <- api_post("/libraries/forget", list(library = lib))
+  unlist(report$removed)
+}
+
+# Tidy up the libraries this client indexed before (`selected`: the ones it syncs now):
+#   folder gone (a deleted renv project, an old R version)  -> dropped from the index
+#   folder there, but no longer chosen                      -> kept; the message says how to drop it
+# Libraries of another origin are left alone: their folders are on another computer or in a
+# container, so "not here" says nothing about them.
+drop_missing_libraries <- function(selected) {
+  for (entry in api_get("/libraries")$libraries) {
+    if (entry$origin != client_origin()) next
+    if (!dir.exists(entry$library)) {
+      removed <- forget_library(entry$library)
+      message(sprintf("%s: the folder no longer exists; removed from the index (%d packages)",
+                      entry$library, length(removed)))
+    } else if (!(entry$library %in% selected)) {
+      message(entry$library, ": indexed, but no longer chosen. To remove it from the index: ",
+              forget_command(entry$library))
+    }
+  }
+}
+
 # Sync the given libraries (main.R: the ones chosen in `init`, see selected_libraries()).
 sync_libraries <- function(libraries) {
-  if (length(libraries) == 0) stop("no R library to index. Choose them: ", command_for("init"), call. = FALSE)
   require_httr2()
   health <- tryCatch(api_get("/health"), error = function(e) NULL)
   if (is.null(health)) stop("the rag API does not answer at ", rag_url(), ". Start it: ", command_for("up"), call. = FALSE)
+  # Even with no library left to sync, the ones that disappeared must still be dropped.
+  if (length(libraries) == 0) message("No R library to sync. Choose them: ", command_for("init"))
+  drop_missing_libraries(libraries)
   failed <- 0
   for (lib in libraries) {
     failed <- failed + length(sync_library(lib))

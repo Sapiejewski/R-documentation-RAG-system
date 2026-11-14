@@ -1,4 +1,4 @@
-"""The sync protocol (plan -> begin -> add_pages -> commit), on in-memory stores."""
+"""The sync protocol (plan -> begin -> add_pages -> commit) and forgetting a library, on in-memory stores."""
 
 import unittest
 
@@ -149,6 +149,36 @@ class TransferTest(SyncTestCase):
         text = format_hit(1, search("pad a string", embedder=self.embedder, store=self.store, k=1)[0])
         self.assertIn("stringr::str_pad", text)
         self.assertIn("chunk 1/", text)
+
+
+class LibrariesTest(SyncTestCase):
+    def test_a_synced_library_is_known_with_its_origin_and_package_count(self):
+        self.indexer.plan("user", [STRINGR], origin="host:laptop")
+        sync_package(self.indexer)
+        self.indexer.plan("/libraries/docker", [], origin="docker")
+
+        self.assertEqual(
+            [(lib.library, lib.origin, lib.packages) for lib in self.indexer.libraries()],
+            [("/libraries/docker", "docker", 0), ("user", "host:laptop", 1)],
+        )
+
+    def test_forgetting_a_library_drops_its_packages_and_nothing_else(self):
+        sync_package(self.indexer)
+        other = STRINGR.model_copy(update={"library": "system"})
+        sync_package(self.indexer, other)
+        self.indexer.plan("user", [STRINGR])
+        self.indexer.plan("system", [other])
+
+        removed = self.indexer.forget("user")
+
+        self.assertEqual(removed, ["stringr"])
+        self.assertEqual(self.store.count({"library": "user"}), 0)
+        self.assertGreater(self.store.count({"library": "system"}), 0)
+        self.assertEqual([lib.library for lib in self.indexer.libraries()], ["system"])
+        self.assertEqual(self.indexer.plan("user", [STRINGR]).send, ["stringr"])  # back later: indexed again
+
+    def test_forgetting_an_unknown_library_is_harmless(self):
+        self.assertEqual(self.indexer.forget("never-seen"), [])
 
 
 if __name__ == "__main__":

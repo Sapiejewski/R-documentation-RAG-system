@@ -1,5 +1,5 @@
-"""A user's story, end to end: install a package, sync, sync again, uninstall, sync -- in both
-modes of the R client (docs/setup.md):
+"""A user's story, end to end: install a package, sync, sync again, uninstall, sync, delete a
+whole library folder, sync -- in both modes of the R client (docs/setup.md):
 
     host mode    your own R runs src/client/main.R          (skipped if the host R has no httr2)
     Docker mode  the same code in the r-extract container   (needs no R on the host)
@@ -90,7 +90,7 @@ class SyncStory:
     @classmethod
     def _remove_api_and_collection(cls) -> None:
         subprocess.run(["docker", "stop", cls.api], capture_output=True, check=False)
-        for name in (cls.collection, f"{cls.collection}_packages"):
+        for name in (cls.collection, f"{cls.collection}_packages", f"{cls.collection}_libraries"):
             request_json("DELETE", f"{cls.settings.qdrant_url}/collections/{name}")
 
     # How the R client sees the two libraries, and how it is run: set by the subclasses.
@@ -131,6 +131,18 @@ class SyncStory:
         self.assertEqual(self.chunks(USER_PACKAGE), 0)
         self.assertGreater(self.chunks(SYSTEM_PACKAGE), 0)
 
+        # 4. A whole library folder is gone (e.g. a deleted renv project): dropped from the index.
+        shutil.rmtree(self.libraries / "system")
+        output = self.sync()
+        self.assertIn(
+            f"{self.system_library}: the folder no longer exists; removed from the index (1 packages)", output
+        )
+        self.assertEqual(self.chunks(SYSTEM_PACKAGE), 0)
+        libraries = [
+            lib["library"] for lib in request_json("GET", f"http://127.0.0.1:{self.api_port}/libraries")["libraries"]
+        ]
+        self.assertEqual(libraries, [self.user_library])
+
 
 class DockerModeTest(SyncStory, unittest.TestCase):
     """`make sync-docker`: the client in the r-extract container. The throwaway libraries are
@@ -140,10 +152,14 @@ class DockerModeTest(SyncStory, unittest.TestCase):
     user_library = "/libraries/e2e-user"
 
     def sync(self) -> str:
+        # Mount only folders that exist: Docker would create a missing one, empty, and the
+        # library would look present with no packages instead of gone.
+        mounts = []
+        for folder, target in (("system", self.system_library), ("user", self.user_library)):
+            if (self.libraries / folder).is_dir():
+                mounts += ["-v", f"{self.libraries / folder}:{target}:ro"]
         return run(
-            "docker", "compose", "run", "--rm", "--no-deps",
-            "-v", f"{self.libraries / 'system'}:{self.system_library}:ro",
-            "-v", f"{self.libraries / 'user'}:{self.user_library}:ro",
+            "docker", "compose", "run", "--rm", "--no-deps", *mounts,
             "-e", f"RDOCS_LIBRARIES={self.system_library}:{self.user_library}",
             "-e", f"RAG_URL=http://{self.api}:8000",
             "r-extract", "sync",

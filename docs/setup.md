@@ -18,6 +18,7 @@ go razem z kodem.
 | pierwsze uruchomienie | `make init` | `.\init.ps1` |
 | diagnostyka | `make doctor` | `Rscript src/client/main.R doctor` |
 | indeksowanie | `make sync` | `Rscript src/client/main.R sync` |
+| usunięcie biblioteki z indeksu | `make forget LIB="<folder>"` | `Rscript src/client/main.R forget "<folder>"` |
 | start / stop usług | `make up` / `make down` | `docker compose up -d --wait --build qdrant ollama rag` / `docker compose down` |
 
 Na Windowsie zwykle nie ma `make`; każdy cel Makefile to jedno, dwa zwykłe polecenia, więc
@@ -141,6 +142,21 @@ make sync-docker              # indeksowanie biblioteki Dockera
 Windows: `docker compose run --rm --no-deps r-extract install stringr`, potem
 `docker compose run --rm r-extract sync`.
 
+## Biblioteki, które znikają albo przestają być potrzebne
+
+Biblioteka w indeksie to jej folder (pełna ścieżka) plus **pochodzenie**: `host:<nazwa komputera>`
+albo `docker`. Przed każdym `sync` klient pyta serwis o znane biblioteki (`GET /libraries`) i:
+
+| Sytuacja | Co robi `sync` |
+|---|---|
+| folder biblioteki tego klienta już nie istnieje (usunięty projekt `renv`, stara wersja R) | usuwa ją z indeksu razem z pakietami: `...: the folder no longer exists; removed from the index (N packages)` |
+| folder istnieje, ale biblioteka nie jest już wybrana (zmiana w `init`) | zostawia; komunikat podaje polecenie `forget` |
+| biblioteka innego pochodzenia (np. `docker` widziana z hosta, inny komputer) | nie rusza — jej foldery są gdzie indziej, „nie ma tutaj” nic o niej nie mówi |
+
+Dzięki pochodzeniu sync na hoście nie skasuje korpusu ewaluacyjnego z trybu docker
+(`/libraries/docker` na hoście nie istnieje), a dwa projekty na jednym komputerze nie kasują
+sobie nawzajem bibliotek. Ręcznie: `forget` usuwa dowolną bibliotekę od razu.
+
 ## Konfiguracja
 
 Jedno miejsce: `.env` w katalogu projektu (wzorzec z opisem każdej zmiennej: `.env.example`).
@@ -151,6 +167,7 @@ Zmienna ustawiona w środowisku ma pierwszeństwo przed `.env`.
 |---|---|---|
 | `RDOCS_LIBRARIES` | klient R (tryb host) | `init` (pytanie o biblioteki); ręcznie też można |
 | `RAG_HOST_PORT` / `RAG_URL` | klient R: gdzie jest API | domyślnie `http://localhost:8000` |
+| `RDOCS_ORIGIN` | klient R: pochodzenie bibliotek | domyślnie `host:<nazwa komputera>`; tryb docker: `docker` (compose) |
 | modele, porty, `LOG_LEVEL` | usługi w Dockerze | `.env.example` |
 
 Docelowo (M2, pakiet R) ustawienia klienta przejdą do standardowego miejsca R:
@@ -181,7 +198,8 @@ raportuje w `GET /health` (stan Qdranta, Ollamy, pobranych modeli) — ten sam r
 |---|---|---|
 | kontrole, pytania, naprawy, wybór bibliotek, zapis `.env` | unit (R) | `tests/unit/r/test-setup.R`, `test-config.R` |
 | `GET /health` ze stanem usług | contract + integration | `tests/contract/test_api.py`, `tests/integration/test_status.py` |
-| sync w trybie docker | e2e | `tests/e2e/test_sync.py` (`DockerModeTest`) |
+| porządkowanie bibliotek (zniknięty folder, inne pochodzenie, niewybrana) | contract (R) + unit (Python) | `tests/contract/r/test-api.R`, `tests/unit/test_indexing.py` |
+| sync w trybie docker (z usunięciem pakietu i całej biblioteki) | e2e | `tests/e2e/test_sync.py` (`DockerModeTest`) |
 | sync w trybie host | e2e, pomijany bez httr2 na hoście | `tests/e2e/test_sync.py` (`HostModeTest`) |
 | `init.sh` bez R | ręcznie (Linux) | PATH bez `Rscript`: propozycja instalacji, odmowa → instrukcja |
 | `init.ps1` | **nieprzetestowany** | do zrobienia na Windowsie (roadmapa) |

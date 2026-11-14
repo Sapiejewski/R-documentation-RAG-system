@@ -34,3 +34,16 @@ test_that("the package overview comes from DESCRIPTION", {
 
   expect_equal(overview$title, "The R Compiler Package")
 })
+
+test_that("a library outside .libPaths() is read, and .libPaths() is left as it was", {
+  # Pages that run R code while rendering load their own package, which R finds only on
+  # .libPaths(): a chosen folder (e.g. a renv library) is usually not there.
+  lib <- withr::local_tempdir()
+  file.copy(file.path(LIB, PKG), lib, recursive = TRUE)
+  before <- .libPaths()
+
+  pages <- help_pages(PKG, lib)
+
+  expect_gt(length(pages), 0)
+  expect_equal(.libPaths(), before)
+})

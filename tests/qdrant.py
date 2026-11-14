@@ -66,7 +66,7 @@ def shared_collection(dim: int) -> str:
 
         _shared = fresh_collection()
         QdrantStore(qdrant_url(), _shared).ensure_collection(dim)
-        QdrantPackageRegistry(qdrant_url(), _shared).indexed("any")  # creates the registry collection
+        QdrantPackageRegistry(qdrant_url(), _shared).indexed("any")  # creates the registry collections
     return _shared
 
 

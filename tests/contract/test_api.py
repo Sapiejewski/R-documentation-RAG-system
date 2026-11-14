@@ -76,6 +76,19 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(plan["removed"], ["stringr"])
         self.assertEqual(self.store.count(), 0)
 
+    def test_libraries_lists_what_is_indexed_and_forget_drops_it(self):
+        send_package(self.client)  # syncs with the fixture's origin, "host:test"
+
+        self.assertEqual(
+            self.client.get("/libraries").json(),
+            {"libraries": [{"library": "user", "origin": "host:test", "packages": 1}]},
+        )
+        answer = self.client.post("/libraries/forget", json={"library": "user"}).json()
+
+        self.assertEqual(answer, {"library": "user", "removed": ["stringr"]})
+        self.assertEqual(self.client.get("/libraries").json(), {"libraries": []})
+        self.assertEqual(self.store.count(), 0)
+
     def test_pages_report_embedded_and_reused_chunks(self):
         send_package(self.client)
         installation = STRINGR.model_dump()
@@ -110,6 +123,11 @@ class ApiValidationTest(unittest.TestCase):
     def test_unknown_field_is_a_typo_not_ignored(self):
         body = {"installation": STRINGR.model_dump(), "pages": [PAGES[0] | {"titel": "typo"}]}
         self.assert_rejected("/packages/pages", body, "titel")
+
+    def test_sync_without_origin(self):
+        body = manifest(STRINGR)
+        del body["origin"]
+        self.assert_rejected("/sync", body, "origin")
 
     def test_empty_package_name(self):
         body = {"installation": STRINGR.model_dump() | {"package": ""}}

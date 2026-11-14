@@ -14,7 +14,7 @@ from rag.api.app import create_app
 from rag.ingestion.indexing import Indexer
 from rag.ingestion.registry import MemoryRegistry
 from rag.retrieval.vector_store import MemoryStore
-from rag.schemas import BeginRequest, CommitRequest, PagesRequest, SyncRequest
+from rag.schemas import BeginRequest, CommitRequest, ForgetRequest, PagesRequest, SyncRequest
 from tests.fakes import FakeEmbedder
 
 EXAMPLES = Path(__file__).parent / "examples"
@@ -25,6 +25,7 @@ ENDPOINTS = {
     "begin": ("/packages/begin", BeginRequest),
     "pages": ("/packages/pages", PagesRequest),
     "commit": ("/packages/commit", CommitRequest),
+    "forget": ("/libraries/forget", ForgetRequest),
 }
 
 

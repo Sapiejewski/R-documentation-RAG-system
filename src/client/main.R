@@ -5,6 +5,7 @@
 #   Rscript src/client/main.R init       first setup: checks, fixes (asking first), choose libraries
 #   Rscript src/client/main.R doctor     check everything, with a hint for each problem
 #   Rscript src/client/main.R sync       index new and changed packages of the chosen libraries
+#   Rscript src/client/main.R forget <folder>    drop a library and all its packages from the index
 #   Rscript src/client/main.R install <pkg>...   Docker mode only: install into the Docker library
 #
 # The flow on Linux, macOS and Windows: docs/setup.md.
@@ -26,6 +27,11 @@ switch(command,
   init = init(),
   doctor = if (!doctor()) quit(status = 1),
   sync = sync_libraries(selected_libraries()),
+  forget = {
+    if (length(args) < 2) stop("usage: main.R forget <library folder>")
+    lib <- normalize_library(args[[2]])
+    message(lib, ": removed from the index (", length(forget_library(lib)), " packages)")
+  },
   install = install_packages(args[-1]),
-  stop("usage: main.R init | doctor | sync | install <package>...")
+  stop("usage: main.R init | doctor | sync | forget <folder> | install <package>...")
 )

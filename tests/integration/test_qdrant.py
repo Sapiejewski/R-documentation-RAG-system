@@ -17,7 +17,7 @@ from rag.cli import main
 from rag.ingestion.indexing import Indexer
 from rag.retrieval.search import search
 from rag.retrieval.vector_store import Point
-from rag.schemas import IndexedPackage
+from rag.schemas import IndexedPackage, KnownLibrary
 from rag.services.http import ServiceError
 from rag.services.qdrant import QdrantPackageRegistry, QdrantStore
 from tests.fakes import DIM, FakeEmbedder, FakeOllama, embed_text
@@ -34,7 +34,7 @@ class QdrantTestCase(unittest.TestCase):
         cls.registry = QdrantPackageRegistry(cls.url, cls.collection)
 
     def setUp(self):
-        empty(self.store, self.registry)
+        empty(self.store, self.registry, self.registry.known_libraries)
 
 
 class QdrantStoreTest(QdrantTestCase):
@@ -89,6 +89,18 @@ class QdrantRegistryTest(QdrantTestCase):
         self.registry.remove("user", "stringr")
         self.assertEqual(self.registry.indexed("user"), {})
 
+    def test_known_libraries_and_forgetting_one(self):
+        self.registry.save(IndexedPackage(installation=STRINGR, index_format="fmt", chunks=7))
+        self.registry.save_library(KnownLibrary(library="user", origin="host:laptop"))
+        self.registry.save_library(KnownLibrary(library="user", origin="host:laptop"))  # idempotent
+        self.registry.save_library(KnownLibrary(library="/libraries/docker", origin="docker"))
+        self.assertEqual([lib.library for lib in self.registry.libraries()], ["/libraries/docker", "user"])
+
+        self.registry.forget_library("user")
+
+        self.assertEqual(self.registry.libraries(), [KnownLibrary(library="/libraries/docker", origin="docker")])
+        self.assertEqual(self.registry.indexed("user"), {})
+
 
 class SyncOverQdrantTest(QdrantTestCase):
     def test_sync_upgrade_and_remove(self):
@@ -141,6 +153,20 @@ class CliOverQdrantTest(QdrantTestCase):
         self.assertIn("stringr::str_trim", out)
         self.assertEqual(self.run_cli("inspect", "stringr", "nope")[0], 1)
         self.assertIn("active chunks", self.run_cli("stats", "--package", "stringr")[1])
+
+    def test_ask_with_and_without_rag(self):
+        sync_package(Indexer(store=self.store, registry=self.registry, embedder=FakeEmbedder()))
+
+        code, out = self.run_cli("ask", "pad a string with zeros", "-k", "2")
+        self.assertEqual(code, 0)
+        self.assertIn("Fits a linear model.", out)  # FakeOllama's answer
+        self.assertIn("Documentation given to the model: stringr::str_pad", out)
+        self.assertIn("stringr::str_pad", self.ollama.generate_requests[-1]["prompt"])
+
+        code, out = self.run_cli("ask", "pad a string with zeros", "--no-rag")
+        self.assertEqual(code, 0)
+        self.assertIn("Without RAG", out)
+        self.assertNotIn("stringr::", self.ollama.generate_requests[-1]["prompt"])
 
 
 class ApiOnQdrantTest(QdrantTestCase):

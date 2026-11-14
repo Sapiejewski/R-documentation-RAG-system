@@ -6,7 +6,7 @@
 
 PKG ?= stringr
 
-.PHONY: help init doctor up up-gpu down logs check sync sync-docker install search evaluate test test-unit test-r test-e2e lint format
+.PHONY: help init doctor up up-gpu down logs check sync forget sync-docker install search evaluate test test-unit test-r test-e2e lint format
 
 help: ## list the targets
 	@grep -E '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -46,6 +46,10 @@ check: ## one real embedding + generation: does the stack work, how fast
 # answers which ones changed, and only those are sent and indexed.
 sync: ## index new and changed packages of your R libraries (chosen in make init)
 	Rscript src/client/main.R sync
+
+# A library still on disk but no longer wanted (a gone folder is dropped by sync itself).
+forget: ## drop a library from the index: make forget LIB="/path/to/library"
+	Rscript src/client/main.R forget "$(LIB)"
 
 # Docker mode: the same R client in a container, on the Docker library only. For running
 # without R on this computer, and for a fixed set of package versions (evaluation).

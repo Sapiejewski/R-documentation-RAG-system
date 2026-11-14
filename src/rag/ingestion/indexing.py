@@ -4,10 +4,14 @@ A sync of one R library is a short conversation with the R client:
 
 1. `plan(manifest)`   the client says what is installed; we drop packages that disappeared and
                       answer which ones to send (new, reinstalled, or indexed in an old format).
+                      The library itself is recorded as known (`libraries()`).
 2. `begin(...)`       per package to send: clear leftovers of an interrupted earlier attempt,
                       store the package overview.
 3. `add_pages(...)`   the help pages, in batches.
 4. `commit(...)`      switch searches over to the new version and delete the old one.
+
+A library whose folder is gone is dropped whole with `forget(library)`; the client decides
+that, since only it can see its folders.
 
 Each package version is stored as its own *generation* of points, inactive until `commit`.
 Search only sees active points, so it never mixes two versions, and an interrupted transfer
@@ -27,7 +31,7 @@ from typing import Protocol
 from rag.ingestion.chunking import CHUNKER_VERSION, Chunk, chunk_description, chunk_topic
 from rag.ingestion.registry import PackageRegistry
 from rag.retrieval.vector_store import Point, VectorStore
-from rag.schemas import IndexedPackage, Installation, StoreReport, SyncPlan
+from rag.schemas import IndexedPackage, Installation, KnownLibrary, LibraryInfo, StoreReport, SyncPlan
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +67,8 @@ class Indexer:
     def index_format(self) -> str:
         return f"chunker-{CHUNKER_VERSION}|{self.embedder.identity}|max-chars-{self.max_chars}"
 
-    def plan(self, library: str, manifest: Sequence[Installation]) -> SyncPlan:
+    def plan(self, library: str, manifest: Sequence[Installation], origin: str = "unknown") -> SyncPlan:
+        self.registry.save_library(KnownLibrary(library=library, origin=origin))
         indexed = self.registry.indexed(library)
         installed = {inst.package: inst for inst in manifest}
 
@@ -83,6 +88,20 @@ class Indexer:
             library, len(manifest), len(plan.send), plan.unchanged, len(plan.removed),
         )  # fmt: skip
         return plan
+
+    def libraries(self) -> list[LibraryInfo]:
+        return [
+            LibraryInfo(library=lib.library, origin=lib.origin, packages=len(self.registry.indexed(lib.library)))
+            for lib in self.registry.libraries()
+        ]
+
+    def forget(self, library: str) -> list[str]:
+        """Drop a library and all its packages from the index. Returns the dropped packages."""
+        packages = sorted(self.registry.indexed(library))
+        self.store.delete({"library": library})
+        self.registry.forget_library(library)
+        log.info("forgot library %s: %d packages removed", library, len(packages))
+        return packages
 
     def begin(self, inst: Installation, title: str, description: str) -> StoreReport:
         self.store.delete({"library": inst.library, "package": inst.package, "active": False})

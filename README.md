@@ -16,6 +16,8 @@ make init                # Windows: .\init.ps1 — sprawdza wymagania, pyta o bi
 make sync                # indeksuje nowe i zmienione pakiety wybranych bibliotek
 make doctor              # gdy coś nie działa: co jest nie tak i co zrobić
 make search q="pad a string with zeros"
+uv run rag ask "What does dplyr's reframe() do?"            # odpowiedź z dokumentacji, z przypisami
+uv run rag ask "What does dplyr's reframe() do?" --no-rag   # ten sam model bez dokumentacji
 make evaluate PKG=stringr
 make logs                # log API; endpointy: http://localhost:8000/docs
 ```

@@ -5,10 +5,43 @@ test_that("every request has the shape of the shared example the Python side acc
   httr2::local_mocked_responses(api$handler)
 
   suppressMessages(sync_library(LIB))
+  forget_library("/some/library")
 
   for (request in api$requests) {
     expect_equal(shape(as_sent(request$body)), shape(example_for(request$path)), label = request$path)
   }
+})
+
+test_that("a library of this client whose folder is gone is dropped; others are left alone", {
+  here <- normalize_library(LIB)
+  gone <- file.path(tempdir(), "deleted-renv-project")
+  withr::local_envvar(RDOCS_ORIGIN = "host:test-laptop")
+  api <- fake_api(known = list(
+    list(library = here, origin = "host:test-laptop", packages = 29),
+    list(library = gone, origin = "host:test-laptop", packages = 2),
+    list(library = "/libraries/docker", origin = "docker", packages = 1), # not here, but not ours
+    list(library = gone, origin = "host:other-computer", packages = 5)
+  ))
+  httr2::local_mocked_responses(api$handler)
+
+  messages <- capture_messages(drop_missing_libraries(selected = here))
+
+  forgotten <- Filter(function(r) r$path == "/libraries/forget", api$requests)
+  expect_length(forgotten, 1)
+  expect_equal(forgotten[[1]]$body$library, gone)
+  expect_match(paste(messages, collapse = ""), "deleted-renv-project: the folder no longer exists; removed .* \\(2 packages\\)")
+})
+
+test_that("a library still on disk but no longer chosen is kept, with how to drop it", {
+  here <- normalize_library(LIB)
+  withr::local_envvar(RDOCS_ORIGIN = "host:test-laptop")
+  api <- fake_api(known = list(list(library = here, origin = "host:test-laptop", packages = 29)))
+  httr2::local_mocked_responses(api$handler)
+
+  messages <- capture_messages(drop_missing_libraries(selected = character(0)))
+
+  expect_false("/libraries/forget" %in% paths(api))
+  expect_match(paste(messages, collapse = ""), "no longer chosen.*forget")
 })
 
 test_that("only the packages in the plan are sent: begin, pages in batches, commit", {

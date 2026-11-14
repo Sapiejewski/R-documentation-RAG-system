@@ -85,5 +85,7 @@ test_that("init's library question saves the choice in .env", {
 })
 
 test_that("hints name the command for this system", {
-  expect_equal(command_for("init"), if (.Platform$OS.type == "windows") ".\\init.ps1" else "make init")
+  windows <- .Platform$OS.type == "windows"
+  expect_equal(command_for("init"), if (windows) ".\\init.ps1" else "make init")
+  expect_equal(forget_command("/a b"), if (windows) 'Rscript src/client/main.R forget "/a b"' else 'make forget LIB="/a b"')
 })

@@ -54,6 +54,7 @@ po Ollamie. Zależności są w osobnej warstwie obrazu: zmiana kodu to przebudow
   na stałe, klient może je powtórzyć. Szczegóły w `make logs`.
 - API odpowiada `422` — klient wysłał niepoprawne dane; odpowiedź wskazuje pole (`loc`).
 - `Model ... may be missing` — `make up` pobiera modele ponownie.
-- `vector size` przy indeksowaniu — zmieniono model embeddingów; usuń kolekcję
-  (`curl -X DELETE http://localhost:6333/collections/r_docs`) albo ustaw inną `QDRANT_COLLECTION`.
+- `vector size` przy indeksowaniu — zmieniono model embeddingów; usuń kolekcję i jej rejestr
+  (`r_docs`, `r_docs_packages`, `r_docs_libraries`: `curl -X DELETE http://localhost:6333/collections/<nazwa>`)
+  albo ustaw inną `QDRANT_COLLECTION`.
 - `make down` zatrzymuje usługi, dane zostają w wolumenach; `docker compose down -v` usuwa je.

@@ -10,7 +10,8 @@ LIB <- .Library
 
 # A stand-in for the rag API: answers like the real one and records every request
 # (api$requests: list of list(path, body)). Requests about `failing_package` get a 422.
-fake_api <- function(send, batch_size = 2, failing_package = "") {
+# `known`: what GET /libraries answers, a list of list(library, origin, packages).
+fake_api <- function(send = character(0), batch_size = 2, failing_package = "", known = list()) {
   api <- new.env() # an environment, so the handler can add to api$requests
   api$requests <- list()
   api$handler <- function(req) { # httr2 requires the argument to be called `req`
@@ -27,6 +28,8 @@ fake_api <- function(send, batch_size = 2, failing_package = "") {
     answer <- switch(path,
       "/sync" = list(send = as.list(send), removed = list(), unchanged = 0, batch_size = batch_size),
       "/packages/commit" = list(chunks = 7),
+      "/libraries" = list(libraries = known),
+      "/libraries/forget" = list(library = body$library, removed = list("pkgA", "pkgB")),
       list(chunks = 1, embedded = 1, reused = 0, seconds = 0) # begin, pages
     )
     httr2::response_json(body = answer)

@@ -45,6 +45,12 @@ rag_url <- function() {
   Sys.getenv("RAG_URL", paste0("http://localhost:", Sys.getenv("RAG_HOST_PORT", "8000")))
 }
 
+# Which client is indexing: "host:<computer name>", or "docker" (set in docker-compose.yml).
+# The index remembers it per library, so a client only drops libraries it indexed itself.
+client_origin <- function() {
+  Sys.getenv("RDOCS_ORIGIN", paste0("host:", Sys.info()[["nodename"]]))
+}
+
 # Absolute paths with "/" on every system, so the same folder is always the same library.
 normalize_library <- function(paths) {
   normalizePath(path.expand(paths), winslash = "/", mustWork = FALSE)

@@ -43,6 +43,12 @@ command_for <- function(step) {
   COMMANDS[[step]][[if (.Platform$OS.type == "windows") "windows" else "make"]]
 }
 
+# How to drop one library from the index, as typed on this system.
+forget_command <- function(lib) {
+  if (.Platform$OS.type == "windows") sprintf('Rscript src/client/main.R forget "%s"', lib)
+  else sprintf('make forget LIB="%s"', lib)
+}
+
 # --- the checks --------------------------------------------------------------------------------
 
 check_result <- function(ok, detail, hint = "", fix = NULL) {

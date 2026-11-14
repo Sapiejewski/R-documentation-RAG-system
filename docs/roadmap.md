@@ -46,13 +46,33 @@ Od razu docelowy protokół (bez plików pośrednich): cienki klient R wysyła t
     wspólne przykłady żądań (`tests/contract/examples/`) sprawdzane po obu stronach
   - **e2e** — cały stos: R → API → Ollama → Qdrant (instalacja, sync, ponowny sync, odinstalowanie); `make test-e2e`, ok. 30 s
   - `make test` = unit + integration + contract (Python i R); od teraz każda nowa funkcja dostaje testy na odpowiednich poziomach
-- [ ] Biblioteka, której już nie ma (odmontowana, usunięty projekt `renv`): jej pakiety znikają z indeksu przy najbliższym syncu
+- [ ] Zmiana kodu czytającego pakiety w R (np. poprawka renderowania) nie wymusza ponownego wysłania
+      pakietów — dziś trzeba `forget` + sync; wersja ekstraktora powinna być częścią formatu indeksu
+- [x] Biblioteka, której już nie ma (usunięty projekt `renv`, stara wersja R): znika z indeksu przy najbliższym syncu; tylko biblioteki własnego pochodzenia (`host:<komputer>` / `docker`); niewybrana, ale istniejąca — `forget` ręcznie
 - [ ] Iteracyjnie: base R, potem data.table, stringr, dplyr (po jednym), usunięcie i reinstalacja pakietu
 - [x] Testy z prawdziwym Qdrantem przez testcontainers (zamiast fałszywego serwera HTTP)
 - [x] Testy klienta R (testthat, `make test-r`): pola stron = schemat API, kolejność rozmowy, paczki, błąd jednego pakietu nie zatrzymuje reszty; kontrole i pytania `init`; e2e w obu trybach
 
 **Zysk:** czas synchronizacji: pełne przeindeksowanie vs poziom pakietu vs poziom pakietu + chunków;
 gdzie jest wąskie gardło (ekstrakcja w R, transport, embedding).
+
+## Punkt kontrolny: demo dla promotora — najbliższy cel
+
+Pokazać działający przepływ i **pierwszą odpowiedź na pytanie badawcze** (czy RAG poprawia
+odpowiedzi), a potem ustalić z promotorem kierunek dalszych prac (metodologia M4, zakres M6).
+
+- [ ] M1 na żywo: base R, potem data.table, stringr, dplyr; czasy pierwszego syncu, syncu bez zmian, nowego pakietu
+  - [x] tryb docker (CPU): stringr, dplyr, data.table + zależności = 11 pakietów, 386 stron, 1183 chunki;
+        pierwszy sync 5 min 29 s (embedding ok. 3,6 chunka/s, prawie cały czas), **bez zmian 2,7 s**
+  - [ ] tryb host (po `make init`): base R i biblioteka osobista; instalacja nowego pakietu → sync
+- [x] `rag ask` z przełącznikiem `--no-rag`: odpowiedź z kontekstem dokumentacji i przypisami (`pkg::topic`)
+      vs sam model — wycinek M3 bez pętli weryfikacji. Pierwszy przykład: `reframe()` (dplyr 1.1) —
+      bez RAG model zmyśla działanie i argument, z RAG odpowiada zgodnie z dokumentacją i ją cytuje
+- [ ] Zestaw ok. 10 pytań, w których wersja pakietu ma znaczenie (nowe/zmienione funkcje); tabela z RAG / bez RAG
+- [ ] `docs/demo.md`: scenariusz pokazu, przygotowanie (rozgrzanie modeli), pytania do promotora
+
+**Zysk:** pierwsza mierzalna różnica „z RAG / bez RAG” na przykładach, które pokazują wyróżnik
+projektu (zainstalowane wersje); decyzje promotora co do metodologii przed M4.
 
 ## M2 — Pakiet R na hoście: dynamiczna synchronizacja
 
@@ -66,7 +86,7 @@ gdzie jest wąskie gardło (ekstrakcja w R, transport, embedding).
 ## M3 — Generacja z pętlą weryfikacji
 
 - [ ] Dokument projektowy `docs/design/verification.md` (zasady i poziomy sprawdzeń) przed kodem
-- [ ] Podpakiet `rag/generation/`: prompt z kontekstem i cytowaniem źródeł (`pkg::topic`), `rag ask` i endpoint API
+- [ ] Endpoint API dla pytań (`POST /ask`) — `rag ask` z punktu kontrolnego jako CLI
 - [ ] Tabela symboli przy ekstrakcji: eksporty i argumenty funkcji danej wersji
 - [ ] Weryfikacja: składnia → użyte funkcje/argumenty (parser R) → istnienie w zainstalowanej wersji
       → ugruntowanie w kontekście → opcjonalnie wykonanie w sandboxie; poprawka z konkretnym błędem, max N prób

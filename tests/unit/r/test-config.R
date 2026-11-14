@@ -34,6 +34,14 @@ test_that("the API address comes from RAG_URL, else the published port", {
   expect_equal(rag_url(), "http://rag:8000")
 })
 
+test_that("the client's origin is its computer, unless set (Docker mode: docker)", {
+  withr::local_envvar(RDOCS_ORIGIN = NA)
+  expect_equal(client_origin(), paste0("host:", Sys.info()[["nodename"]]))
+
+  withr::local_envvar(RDOCS_ORIGIN = "docker")
+  expect_equal(client_origin(), "docker")
+})
+
 test_that("chosen libraries come from RDOCS_LIBRARIES; a missing folder is skipped with a message", {
   existing <- normalize_library(withr::local_tempdir())
   missing <- file.path(existing, "deleted-project")

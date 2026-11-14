@@ -87,6 +87,8 @@ services:
     environment:
       RAG_URL: http://rag:8000
       RDOCS_LIBRARIES: /libraries/docker
+      # The index remembers who indexed each library; a host never drops the Docker library.
+      RDOCS_ORIGIN: docker
     depends_on:
       rag:
         condition: service_healthy

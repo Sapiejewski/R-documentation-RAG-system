@@ -33,6 +33,15 @@ class Installation(Schema):
     built: NonEmpty
 
 
+class KnownLibrary(Schema):
+    """A library the index knows: its folder (absolute path, the library's identity) and which
+    client indexed it. `origin` is "host:<computer>" or "docker": a client only judges libraries
+    of its own origin -- a host must not drop the Docker library because it lacks that folder."""
+
+    library: NonEmpty
+    origin: NonEmpty
+
+
 class IndexedPackage(Schema):
     """What the index remembers about one package."""
 
@@ -79,9 +88,10 @@ class InstalledVersion(Schema):
 
 
 class SyncRequest(Schema):
-    """`POST /sync`: everything installed in one library."""
+    """`POST /sync`: everything installed in one library, and which client is asking."""
 
     library: NonEmpty
+    origin: NonEmpty
     packages: list[InstalledVersion]
 
     def installations(self) -> list[Installation]:
@@ -125,6 +135,31 @@ class ServiceStatus(Schema):
     name: str
     ok: bool
     detail: str
+
+
+class LibraryInfo(Schema):
+    """One row of `GET /libraries`."""
+
+    library: str
+    origin: str
+    packages: int = Field(ge=0)
+
+
+class Libraries(Schema):
+    """`GET /libraries`: every library in the index."""
+
+    libraries: list[LibraryInfo]
+
+
+class ForgetRequest(Schema):
+    """`POST /libraries/forget`: drop a library and all its packages from the index."""
+
+    library: NonEmpty
+
+
+class ForgetReport(Schema):
+    library: str
+    removed: list[str]  # its packages that were dropped
 
 
 class Health(Schema):
