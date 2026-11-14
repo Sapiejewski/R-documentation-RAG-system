@@ -80,6 +80,14 @@ class QdrantStoreTest(QdrantTestCase):
 
 
 class QdrantRegistryTest(QdrantTestCase):
+    def test_entry_saved_before_extractor_versions_is_read_as_version_0(self):
+        old_payload = STRINGR.model_dump(exclude={"extractor"}) | {"index_format": "fmt", "chunks": 3}
+        point = {"id": "00000000-0000-0000-0000-000000000001", "vector": {}, "payload": old_payload}
+        self.registry.indexed("user")  # creates the registry collections
+        self.registry._call("PUT", "/points?wait=true", {"points": [point]})
+
+        self.assertEqual(self.registry.indexed("user")["stringr"].installation.extractor, 0)
+
     def test_save_list_and_remove(self):
         entry = IndexedPackage(installation=STRINGR, index_format="fmt", chunks=7)
         self.registry.save(entry)

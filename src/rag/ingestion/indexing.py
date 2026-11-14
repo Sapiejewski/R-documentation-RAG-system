@@ -127,7 +127,9 @@ class Indexer:
         return chunks
 
     def _generation(self, inst: Installation) -> str:
-        key = f"{inst.built}|{self.index_format}"
+        # A new reading code (extractor) is a new generation too: the old one stays searchable
+        # until commit instead of being overwritten in place.
+        key = f"{inst.built}|extractor-{inst.extractor}|{self.index_format}"
         return hashlib.sha256(key.encode()).hexdigest()[:16]
 
     def _content_hash(self, text: str) -> str:

@@ -1,5 +1,5 @@
 {
-  "installation": {"library": "/usr/lib/R/library", "package": "compiler", "version": "4.3.3", "built": "R 4.3.3; ; 2024-04-21 13:34:43 UTC; unix"},
+  "installation": {"library": "/usr/lib/R/library", "package": "compiler", "version": "4.3.3", "built": "R 4.3.3; ; 2024-04-21 13:34:43 UTC; unix", "extractor": 2},
   "pages": [
     {
       "name": "compile",

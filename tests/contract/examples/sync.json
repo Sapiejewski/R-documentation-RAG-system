@@ -1,6 +1,7 @@
 {
   "library": "/usr/lib/R/library",
   "origin": "host:my-laptop",
+  "extractor": 2,
   "packages": [
     {
       "package": "compiler",

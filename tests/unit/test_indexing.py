@@ -132,7 +132,11 @@ class TransferTest(SyncTestCase):
 
     def test_other_packages_are_left_alone(self):
         other = Installation(
-            library="user", package="other", version="1.0", built="R 4.5.1; ; 2025-01-01 00:00:00 UTC; unix"
+            library="user",
+            package="other",
+            version="1.0",
+            built="R 4.5.1; ; 2025-01-01 00:00:00 UTC; unix",
+            extractor=1,
         )
         sync_package(self.indexer, other, [p | {"package": "other"} for p in PAGES])
         before = self.store.count({"package": "other"})
@@ -149,6 +153,29 @@ class TransferTest(SyncTestCase):
         text = format_hit(1, search("pad a string", embedder=self.embedder, store=self.store, k=1)[0])
         self.assertIn("stringr::str_pad", text)
         self.assertIn("chunk 1/", text)
+
+
+class ExtractorVersionTest(SyncTestCase):
+    def test_a_new_reading_code_requests_the_package_again(self):
+        sync_package(self.indexer)
+        self.assertEqual(self.indexer.plan("user", [STRINGR]).send, [])
+
+        newer = STRINGR.model_copy(update={"extractor": 2})
+        self.assertEqual(self.indexer.plan("user", [newer]).send, ["stringr"])
+
+    def test_resending_keeps_the_old_text_searchable_until_commit(self):
+        sync_package(self.indexer)
+        newer = STRINGR.model_copy(update={"extractor": 2})
+        self.indexer.begin(newer, OVERVIEW["title"], OVERVIEW["description"])
+        self.indexer.add_pages(newer, PAGES)
+
+        active_before = self.store.count({"package": "stringr", "active": True})
+        self.indexer.commit(newer)
+
+        self.assertGreater(active_before, 0)  # the old generation was not overwritten in place
+        self.assertEqual(
+            self.store.count({"package": "stringr"}), self.store.count({"package": "stringr", "active": True})
+        )
 
 
 class LibrariesTest(SyncTestCase):

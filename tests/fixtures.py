@@ -126,7 +126,7 @@ Examples:
 """
 
 STRINGR = Installation(
-    library="user", package="stringr", version="1.5.1", built="R 4.5.1; ; 2025-01-10 10:00:00 UTC; unix"
+    library="user", package="stringr", version="1.5.1", built="R 4.5.1; ; 2025-01-10 10:00:00 UTC; unix", extractor=1
 )
 
 OVERVIEW = {
@@ -164,6 +164,7 @@ def manifest(*installations: Installation, library: str = "user", origin: str = 
     return {
         "library": library,
         "origin": origin,
+        "extractor": installations[0].extractor if installations else 1,
         "packages": [{"package": i.package, "version": i.version, "built": i.built} for i in installations],
     }
 

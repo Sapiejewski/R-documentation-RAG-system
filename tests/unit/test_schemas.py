@@ -10,7 +10,13 @@ from tests.fixtures import STRINGR
 
 class InstallationTest(unittest.TestCase):
     def test_accepts_what_the_r_client_sends(self):
-        data = {"library": "user", "package": "stringr", "version": "1.5.1", "built": "R 4.5.1; ; 2025; unix"}
+        data = {
+            "library": "user",
+            "package": "stringr",
+            "version": "1.5.1",
+            "built": "R 4.5.1; ; 2025; unix",
+            "extractor": 2,
+        }
         self.assertEqual(Installation.model_validate(data).package, "stringr")
 
     def test_rejects_missing_empty_and_unknown_fields(self):

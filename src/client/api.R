@@ -65,14 +65,18 @@ send_package <- function(installation, lib, batch_size) {
 # then send what the service asks for. Returns the packages that failed.
 sync_library <- function(lib) {
   manifest <- library_manifest(lib)
-  plan <- api_post("/sync", list(library = lib, origin = client_origin(), packages = manifest))
+  plan <- api_post("/sync", list(
+    library = lib, origin = client_origin(), extractor = EXTRACTOR_VERSION, packages = manifest
+  ))
   message(sprintf("%s: %d packages | %d to send, %d unchanged, %d removed",
                   lib, nrow(manifest), length(plan$send), plan$unchanged, length(plan$removed)))
 
   failed <- character(0)
   for (pkg in plan$send) {
     row <- manifest[manifest$package == pkg, ]
-    installation <- list(library = lib, package = pkg, version = row$version, built = row$built)
+    installation <- list(
+      library = lib, package = pkg, version = row$version, built = row$built, extractor = EXTRACTOR_VERSION
+    )
     sent <- tryCatch({
       send_package(installation, lib, plan$batch_size)
       TRUE

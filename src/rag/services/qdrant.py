@@ -151,7 +151,10 @@ class QdrantPackageRegistry(_Collection):
         entries = {}
         for point in self._scroll(_filter({"library": library})):
             p = point["payload"]
-            installation = Installation.model_validate({k: p[k] for k in Installation.model_fields})
+            # Entries saved before extractor versions existed count as version 0: sent again.
+            installation = Installation.model_validate(
+                {k: p[k] for k in Installation.model_fields if k != "extractor"} | {"extractor": p.get("extractor", 0)}
+            )
             entries[p["package"]] = IndexedPackage(
                 installation=installation, index_format=p["index_format"], chunks=p["chunks"]
             )

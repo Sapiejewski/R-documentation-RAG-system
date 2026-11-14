@@ -195,7 +195,7 @@ run_checks <- function(names, fix = FALSE, checks = CHECKS) {
 
 doctor <- function() {
   ok <- run_checks(names(CHECKS))
-  cat(if (ok) "\nEverything is in place.\n" else "\nSome checks failed; each says what to do (docs/setup.md).\n")
+  cat(if (ok) "\nEverything is in place.\n" else "\nSome checks failed; each says what to do (README.md).\n")
   ok
 }
 
@@ -234,7 +234,7 @@ choose_libraries <- function() {
 }
 
 init <- function() {
-  cat("Checking what the project needs (docs/setup.md).\n\n")
+  cat("Checking what the project needs (README.md).\n\n")
   if (!run_checks(c("R", "httr2", "Docker"), fix = TRUE)) {
     stop("fix the problems above, then run ", command_for("init"), " again", call. = FALSE)
   }

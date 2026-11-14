@@ -1,9 +1,17 @@
 # Reading installed R packages: what is installed, and their help pages as text.
 # No network here (that is api.R). Sourced by main.R.
 #
-# It only reads files of an installed package (DESCRIPTION and the compiled help
-# database help/<pkg>.rdb); it never loads the package. That is why it works for
-# packages installed by a different R version than the one running here.
+# It reads files of an installed package (DESCRIPTION and the compiled help database
+# help/<pkg>.rdb) without loading the package, which is why it works for packages installed
+# by a different R version than the one running here. The one exception: a page that runs R
+# code while rendering (\Sexpr, e.g. in generics) loads its package; if that fails, only that
+# page is skipped, with a message.
+
+# Bump when a change in this file changes what is read from the same installed package (the
+# text of a page, which pages are kept): the service then asks for every package again.
+#   1  first version
+#   2  the library being read is put on .libPaths(), so pages that load their package render
+EXTRACTOR_VERSION <- 2L
 
 tools::Rd2txt_options(underline_titles = FALSE, width = 80)
 

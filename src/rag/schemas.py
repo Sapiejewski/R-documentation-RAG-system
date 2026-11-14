@@ -24,13 +24,17 @@ class Schema(BaseModel):
 
 
 class Installation(Schema):
-    """One package installed in one R library. `built` (from DESCRIPTION) changes on every
-    reinstall, even of the same version, so (version, built) identifies an installation."""
+    """One package installed in one R library, as the R client read it. `built` (from DESCRIPTION)
+    changes on every reinstall, even of the same version, so (version, built) identifies an
+    installation. `extractor` is the version of the client's reading code (EXTRACTOR_VERSION in
+    src/client/extract.R): when it changes, the same installation gives different text, so the
+    package is sent again."""
 
     library: NonEmpty
     package: NonEmpty
     version: NonEmpty
     built: NonEmpty
+    extractor: int = Field(ge=0)  # 0: indexed before extractor versions existed
 
 
 class KnownLibrary(Schema):
@@ -88,14 +92,18 @@ class InstalledVersion(Schema):
 
 
 class SyncRequest(Schema):
-    """`POST /sync`: everything installed in one library, and which client is asking."""
+    """`POST /sync`: everything installed in one library, which client is asking, and the
+    version of its reading code."""
 
     library: NonEmpty
     origin: NonEmpty
+    extractor: int = Field(ge=1)
     packages: list[InstalledVersion]
 
     def installations(self) -> list[Installation]:
-        return [Installation(library=self.library, **row.model_dump()) for row in self.packages]
+        return [
+            Installation(library=self.library, extractor=self.extractor, **row.model_dump()) for row in self.packages
+        ]
 
 
 class BeginRequest(Schema):

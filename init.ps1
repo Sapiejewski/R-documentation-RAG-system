@@ -34,7 +34,7 @@ if (-not $rscript) {
     }
     if (-not $rscript) {
         Write-Host "Install R from https://cloud.r-project.org/bin/windows/ and run .\init.ps1 again."
-        Write-Host "Without R you can still use Docker mode: see docs/setup.md."
+        Write-Host "Without R you can still use Docker mode: see README.md."
         exit 1
     }
 }

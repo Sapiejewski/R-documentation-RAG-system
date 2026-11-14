@@ -73,7 +73,8 @@ test_that("the manifest goes to /sync, and every package request names the insta
   row <- sync$packages[sync$packages$package == PKG, ]
   for (request in api$requests[-1]) {
     expect_equal(request$body$installation,
-                 list(library = LIB, package = PKG, version = row$version, built = row$built))
+                 list(library = LIB, package = PKG, version = row$version, built = row$built,
+                      extractor = EXTRACTOR_VERSION))
   }
 })
 
